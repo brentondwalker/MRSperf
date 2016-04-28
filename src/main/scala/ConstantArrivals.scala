@@ -22,9 +22,10 @@ object ConstantArrivals {
 		val spark = new SparkContext(conf)
 		println("*** got spark context ***")
 		val totalSlices = if (args.length > 0) args(0).toInt else 2
+		val slicesPerStep = if (args.length > 1) args(1).toInt else 1
 		println("*** totalSlices = "+totalSlices+" ***")
+		println("*** slicesPerStep = "+slicesPerStep+" ***")
 		val totalN = math.min(100000L * totalSlices, Int.MaxValue).toInt
-		val slicesPerStep = 2
 		val iterationsPerSlice = totalN/totalSlices
 		var count: Long = 0
 		var slicesRun = 0
