@@ -38,9 +38,9 @@ object PoissonArrivals {
 		println("*** got spark context ***")
 		
 		//val scheduler: TaskSchedulerImpl = 
-		spark.taskScheduler
-		spark.getConf
-		println("*** got taskScheduler ***")
+		//spark.taskScheduler
+		//spark.getConf
+		//println("*** got taskScheduler ***")
 		//println(scheduler)
 		
 		val totalSlices = if (args.length > 0) args(0).toInt else 2
