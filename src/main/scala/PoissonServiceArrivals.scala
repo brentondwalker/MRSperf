@@ -49,6 +49,12 @@ object PoissonServiceArrivals {
 		println("*** slicesPerStep = "+slicesPerStep+" ***")
   	println("*** totalJobs = "+totalJobs+" ***")
 		var slicesRun = 0
+		
+		// give the system a little time for the executors to start... 30 seconds?
+		print("Waiting a moment to let the executors start...")
+		Thread sleep 1000*30
+		print("done waiting!")
+		
 		var doneSignal: CountDownLatch = new CountDownLatch(totalJobs)
 		val initialTime = java.lang.System.currentTimeMillis()
 		while (slicesRun < totalSlices) {
