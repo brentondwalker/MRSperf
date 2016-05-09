@@ -62,6 +62,9 @@ def main():
                                          'launch_time': task_info['Launch Time']
                                         }
             elif evt['Event'] == 'SparkListenerTaskEnd':
+                if 'Task Metrics' not in evt:
+                    print("WARNING: got SparkListenerTaskEnd event with no 'Task Metrics'")
+                    continue
                 stage_id = evt['Stage ID']
                 job_id = stage_to_job_lookup[stage_id]
                 task_info = evt['Task Info']

@@ -51,6 +51,7 @@ object PoissonServiceArrivals {
 		var slicesRun = 0
 		
 		// give the system a little time for the executors to start... 30 seconds?
+		// this is stupid b/c the full set of executors actually take less tha 1s to start
 		print("Waiting a moment to let the executors start...")
 		Thread sleep 1000*30
 		print("done waiting!")
