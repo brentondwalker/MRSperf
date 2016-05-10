@@ -94,6 +94,9 @@ def main():
     
     # save some stats in tabular form
     max_time_interval = 0
+    mean_waiting_sum = 0.0
+    mean_sojourn_sum = 0.0
+    mean_n = 0
     with open(args.outfile, 'w') as f:
         for job_id in sorted(events.iterkeys()):
             # if we are processing a log that got truncated or is unfinished
@@ -115,6 +118,11 @@ def main():
                 for task_id in sorted(stage['tasks'].iterkeys()):
                     #print("task_id: "+str(task_id))
                     task = stage['tasks'][task_id]
+                    # check if this task attempt finished?
+                    if 'finish_time' not in task:
+                        print("WARNING: found task with no finish time")
+                        del stage['tasks'][task_id]
+                        continue
                     launch_time = task['launch_time']
                     finish_time = task['finish_time']
                     run_time = task['run_time']
@@ -127,6 +135,12 @@ def main():
                     if (first_task_launch_time == 0) or (first_task_launch_time > launch_time):
                         first_task_launch_time = launch_time
             job['waiting_time'] = first_task_launch_time - job_sub_time
+            mean_waiting_sum += job['waiting_time']
+            mean_sojourn_sum += job['sojourn_time']
+            mean_n += 1
+
+    print("mean waiting time: "+str(mean_waiting_sum/mean_n)+"   (n="+str(mean_n)+")")
+    print("mean sojourn time: "+str(mean_sojourn_sum/mean_n)+"   (n="+str(mean_n)+")")
     
     if args.distfile:
         bin_width = args.binwidth
