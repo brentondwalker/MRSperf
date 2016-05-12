@@ -96,6 +96,7 @@ def main():
     max_time_interval = 0
     mean_waiting_sum = 0.0
     mean_sojourn_sum = 0.0
+    mean_service_sum = 0.0
     mean_n = 0
     with open(args.outfile, 'w') as f:
         for job_id in sorted(events.iterkeys()):
@@ -137,10 +138,12 @@ def main():
             job['waiting_time'] = first_task_launch_time - job_sub_time
             mean_waiting_sum += job['waiting_time']
             mean_sojourn_sum += job['sojourn_time']
+            mean_service_sum += job['sojourn_time'] - job['waiting_time']
             mean_n += 1
 
     print("mean waiting time: "+str(mean_waiting_sum/mean_n)+"   (n="+str(mean_n)+")")
     print("mean sojourn time: "+str(mean_sojourn_sum/mean_n)+"   (n="+str(mean_n)+")")
+    print("mean service time: "+str(mean_service_sum/mean_n)+"   (n="+str(mean_n)+")")
     
     if args.distfile:
         bin_width = args.binwidth
@@ -149,7 +152,8 @@ def main():
             distributions[i] = {
                                  'dt': 1.0*i*bin_width/1000.0,
                                  'sojourn': 0,
-                                 'waiting': 0
+                                 'waiting': 0,
+                                 'service': 0
                                 }
         for job_id in sorted(events.iterkeys()):
             # if we are processing a log that got truncated or is unfinished
@@ -158,13 +162,16 @@ def main():
             job = events[job_id]
             distributions[job['sojourn_time']/bin_width]['sojourn'] += 1
             distributions[job['waiting_time']/bin_width]['waiting'] += 1
+            service_time = job['sojourn_time'] - job['waiting_time']
+            distributions[service_time/bin_width]['service'] += 1
                 
         with open(args.distfile, 'w') as f:
             total = 1.0*len(events)
             for i in xrange(0, (max_time_interval/bin_width)+1):
                 f.write("\t".join([str(distributions[i]['dt']),
                                    str(distributions[i]['sojourn']/total),
-                                   str(distributions[i]['waiting']/total)])
+                                   str(distributions[i]['waiting']/total),
+                                   str(distributions[i]['service']/total)])
                         +"\n")
 
 
