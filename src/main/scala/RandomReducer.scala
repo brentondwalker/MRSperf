@@ -51,14 +51,14 @@ object RandomReducer {
 	  println(summedData.collect())
 
 	  println("reducing by key 2 ...")
-	  val summedData = distData.reduceByKey((a,b) => a + b)
+	  val summedData2 = distData.reduceByKey((a,b) => a + b)
 	  //summedData.take(100).foreach(println)
-	  println(summedData.collect())
+	  println(summedData2.collect())
 
 	  println("reducing by key 3 ...")
-	  val summedData = distData.reduceByKey((a,b) => a + b)
+	  val summedData3 = distData.reduceByKey((a,b) => a + b)
 	  //summedData.take(100).foreach(println)
-	  println(summedData.collect())
+	  println(summedData3.collect())
 
 	  
 	  //println("making 
