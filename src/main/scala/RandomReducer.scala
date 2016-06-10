@@ -41,6 +41,7 @@ object RandomReducer {
 	  //distData.take(100).foreach(println)
 
 	  // force the data to be computed and cached across the cluster
+	  println("persist distData...")
 	  distData.persist()
 	  
 	  println("reducing by key...")
