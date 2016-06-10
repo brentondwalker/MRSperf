@@ -43,10 +43,16 @@ object RandomReducer {
 	  // force the data to be computed and cached across the cluster
 	  println("persist distData...")
 	  distData.persist()
-	  distData.take(2).foreach(println)
+	  //distData.take(2).foreach(println)
+	  distData.reduce(x => 0)
 	  println("done!")
 
 	  
+	  // the idea was that by computing different things in the reduce, the
+	  // optimizastion of the repeated reduces wouldn't be very good, but
+	  // it is the same as if we computed the same thing three times.  Maybe
+	  // the shuffle operation only has to be done once.  Or once the datas are
+	  // sorted out by keys on each executor it doesn't have to be done again?
 	  println("reducing by key 1 ...")
 	  val summedData = distData.reduceByKey((a,b) => a + b)
 	  //summedData.take(100).foreach(println)
