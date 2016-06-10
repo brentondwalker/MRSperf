@@ -43,11 +43,23 @@ object RandomReducer {
 	  // force the data to be computed and cached across the cluster
 	  println("persist distData...")
 	  distData.persist()
+	  distData.take(2).foreach(println)
 	  
-	  println("reducing by key...")
+	  println("reducing by key 1 ...")
 	  val summedData = distData.reduceByKey((a,b) => a + b)
 	  //summedData.take(100).foreach(println)
 	  println(summedData.collect())
+
+	  println("reducing by key 2 ...")
+	  val summedData = distData.reduceByKey((a,b) => a + b)
+	  //summedData.take(100).foreach(println)
+	  println(summedData.collect())
+
+	  println("reducing by key 3 ...")
+	  val summedData = distData.reduceByKey((a,b) => a + b)
+	  //summedData.take(100).foreach(println)
+	  println(summedData.collect())
+
 	  
 	  //println("making 
 	  //distData.map(x => (Random.nextInt(numKeys), x))
