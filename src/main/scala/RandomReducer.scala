@@ -17,8 +17,8 @@ object RandomReducer {
    * sbt "run-main RandomReducer 4 100000 1000"
    */
   def main(args: Array[String]) {
-	  //val conf = new SparkConf().setMaster("local[2]").setAppName("RandomReducer")
-	  val conf = new SparkConf().setAppName("RandomReducer")
+	  val conf = new SparkConf().setMaster("local[2]").setAppName("RandomReducer")
+	  //val conf = new SparkConf().setAppName("RandomReducer")
 	  println("*** got conf ***")
 		val spark = new SparkContext(conf)
 		println("*** got spark context ***")
@@ -27,7 +27,7 @@ object RandomReducer {
 		// give the system a little time for the executors to start... 30 seconds?
 		// this is stupid b/c the full set of executors actually take less tha 1s to start
 		print("Waiting a moment to let the executors start...")
-		Thread sleep 1000*2
+		Thread sleep 1000*5
 		println("done waiting!\n")
 		
 	  val numPartitions = if (args.length > 0) args(0).toInt else 1
@@ -39,6 +39,9 @@ object RandomReducer {
 	  		(1 to recordsPerPartition).map{_ => (Random.nextInt(numKeys), 1)}.iterator
 		  }}
 	  //distData.take(100).foreach(println)
+
+	  // force the data to be computed and cached across the cluster
+	  distData.persist()
 	  
 	  println("reducing by key...")
 	  val summedData = distData.reduceByKey((a,b) => a + b)
@@ -51,6 +54,9 @@ object RandomReducer {
 	  
 		println("*** FINISHED!! ***")
 		
+		Thread sleep 1000*5
+
+		println("*** stopping spark ***")
 		spark.stop()
   }
 }
