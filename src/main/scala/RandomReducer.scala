@@ -44,7 +44,7 @@ object RandomReducer {
 	  println("persist distData...")
 	  distData.persist()
 	  //distData.take(2).foreach(println)
-	  distData.reduce(x => 0)
+	  distData.reduce((a,b) => 0)
 	  println("done!")
 
 	  
