@@ -44,6 +44,8 @@ object RandomReducer {
 	  println("persist distData...")
 	  distData.persist()
 	  distData.take(2).foreach(println)
+	  println("done!")
+
 	  
 	  println("reducing by key 1 ...")
 	  val summedData = distData.reduceByKey((a,b) => a + b)
@@ -51,12 +53,12 @@ object RandomReducer {
 	  println(summedData.collect())
 
 	  println("reducing by key 2 ...")
-	  val summedData2 = distData.reduceByKey((a,b) => a + b)
+	  val summedData2 = distData.reduceByKey((a,b) => a + 2*b)
 	  //summedData.take(100).foreach(println)
 	  println(summedData2.collect())
 
 	  println("reducing by key 3 ...")
-	  val summedData3 = distData.reduceByKey((a,b) => a + b)
+	  val summedData3 = distData.reduceByKey((a,b) => 2*a + b)
 	  //summedData.take(100).foreach(println)
 	  println(summedData3.collect())
 
