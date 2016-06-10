@@ -17,8 +17,8 @@ object RandomReducer {
    * sbt "run-main RandomReducer 4 100000 1000"
    */
   def main(args: Array[String]) {
-	  val conf = new SparkConf().setMaster("local[2]").setAppName("RandomReducer")
-	  //val conf = new SparkConf().setAppName("RandomReducer")
+	  //val conf = new SparkConf().setMaster("local[2]").setAppName("RandomReducer")
+	  val conf = new SparkConf().setAppName("RandomReducer")
 	  println("*** got conf ***")
 		val spark = new SparkContext(conf)
 		println("*** got spark context ***")
