@@ -54,17 +54,17 @@ object RandomReducer {
 	  // the shuffle operation only has to be done once.  Or once the datas are
 	  // sorted out by keys on each executor it doesn't have to be done again?
 	  println("reducing by key 1 ...")
-	  val summedData = distData.reduceByKey((a,b) => a + b)
+	  val summedData = distData.mapValues(x => Random.nextInt()).reduceByKey((a,b) => a + b)
 	  //summedData.take(100).foreach(println)
 	  println(summedData.collect())
 
 	  println("reducing by key 2 ...")
-	  val summedData2 = distData.reduceByKey((a,b) => a + 2*b)
+	  val summedData2 = distData.mapValues(x => Random.nextInt()).reduceByKey((a,b) => a + 2*b)
 	  //summedData.take(100).foreach(println)
 	  println(summedData2.collect())
 
 	  println("reducing by key 3 ...")
-	  val summedData3 = distData.reduceByKey((a,b) => 2*a + b)
+	  val summedData3 = distData.mapValues(x => Random.nextInt()).reduceByKey((a,b) => 2*a + b)
 	  //summedData.take(100).foreach(println)
 	  println(summedData3.collect())
 
