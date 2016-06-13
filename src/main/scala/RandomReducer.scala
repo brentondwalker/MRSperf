@@ -74,7 +74,7 @@ object RandomReducer {
 	  println("reducing by key 4 ...")
 	  val summedData4 = distData.values.map(x => (Random.nextInt(numKeys), Random.nextInt())).reduceByKey((a,b) => a + b)
 	  //summedData.take(100).foreach(println)
-	  println(summedData.collect())
+	  println(summedData4.collect())
 
 	  println("reducing by key 5 ...")
 	  val summedData5 = distData.values.map(x => (Random.nextInt(numKeys), Random.nextInt())).reduceByKey((a,b) => a + 2*b)
