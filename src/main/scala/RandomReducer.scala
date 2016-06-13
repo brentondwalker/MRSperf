@@ -57,34 +57,34 @@ object RandomReducer {
 	  println("reducing by key 1 ...")
 	  val summedData = distData.mapValues(x => Random.nextInt()).reduceByKey((a,b) => a + b)
 	  //summedData.take(100).foreach(println)
-	  println(summedData.collect())
+	  println(summedData.count())
 
 	  println("reducing by key 2 ...")
 	  val summedData2 = distData.mapValues(x => Random.nextInt()).reduceByKey((a,b) => a + 2*b)
 	  //summedData.take(100).foreach(println)
-	  println(summedData2.collect())
+	  println(summedData2.count())
 
 	  println("reducing by key 3 ...")
 	  val summedData3 = distData.mapValues(x => Random.nextInt()).reduceByKey((a,b) => 2*a + b)
 	  //summedData.take(100).foreach(println)
-	  println(summedData3.collect())
+	  println(summedData3.count())
 
 	  // ===============================---------------------
 	  println("now jumble the keys too ...")
 	  println("reducing by key 4 ...")
 	  val summedData4 = distData.values.map(x => (Random.nextInt(numKeys), Random.nextInt())).reduceByKey((a,b) => a + b)
 	  //summedData.take(100).foreach(println)
-	  println(summedData4.collect())
+	  println(summedData4.count())
 
 	  println("reducing by key 5 ...")
 	  val summedData5 = distData.values.map(x => (Random.nextInt(numKeys), Random.nextInt())).reduceByKey((a,b) => a + 2*b)
 	  //summedData.take(100).foreach(println)
-	  println(summedData5.collect())
+	  println(summedData5.count())
 
 	  println("reducing by key 6 ...")
 	  val summedData6 = distData.values.map(x => (Random.nextInt(numKeys), Random.nextInt())).reduceByKey((a,b) => 2*a + b)
 	  //summedData.take(100).foreach(println)
-	  println(summedData6.collect())
+	  println(summedData6.count())
 	  
 	  
 	  //println("making 
