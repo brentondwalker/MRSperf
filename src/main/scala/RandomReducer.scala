@@ -100,6 +100,18 @@ object RandomReducer {
 	  val summedData9 = distData.values.map(x => (Random.nextInt(numKeys), Random.nextInt())).groupByKey(numPartitions)
 	  println(summedData9.count())
 	  
+	  // ===============================---------------------
+	  println("repeatedly do groupByKey on cached data...")
+	  val summedData10 = distData.values.map(x => (Random.nextInt(numKeys), Random.nextInt()))
+	  summedData10.persist()
+	  println("grouping by key 10 ...")
+	  println(summedData10.groupByKey(numPartitions).count())
+
+	  println("grouping by key 11 ...")
+	  println(summedData10.groupByKey(numPartitions).count())
+
+	  println("grouping by key 12 ...")
+	  println(summedData10.groupByKey(numPartitions).count())
 	  
 	  //println("making 
 	  //distData.map(x => (Random.nextInt(numKeys), x))
