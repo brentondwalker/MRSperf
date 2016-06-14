@@ -86,6 +86,20 @@ object RandomReducer {
 	  //summedData.take(100).foreach(println)
 	  println(summedData6.count())
 	  
+	  // ===============================---------------------
+	  println("now jumble the keys and do groupByKey ...")
+	  println("grouping by key 7 ...")
+	  val summedData7 = distData.values.map(x => (Random.nextInt(numKeys), Random.nextInt())).groupByKey(numPartitions)
+	  println(summedData7.count())
+
+	  println("grouping by key 8 ...")
+	  val summedData8 = distData.values.map(x => (Random.nextInt(numKeys), Random.nextInt())).groupByKey(numPartitions)
+	  println(summedData8.count())
+
+	  println("grouping by key 9 ...")
+	  val summedData9 = distData.values.map(x => (Random.nextInt(numKeys), Random.nextInt())).groupByKey(numPartitions)
+	  println(summedData9.count())
+	  
 	  
 	  //println("making 
 	  //distData.map(x => (Random.nextInt(numKeys), x))
