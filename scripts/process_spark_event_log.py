@@ -1,12 +1,15 @@
 #
 # python scripts/process_spark_event_log.py -f workdir/app-20160503103936-0006 -o data/app-20160503103936-0006_t1_r15_s10 -d data/app-20160503103936-0006_t1_r15_s10.dist -b 10
 #
+# python scripts/process_spark_event_log.py -f fjpaper-data/app-20160802152503-0000_t1_e1_c1_r07_s10.gz -o fjpaper-data/app-20160802152503-0000_t1_e1_c1_r07_s10.dat -d fjpaper-data/app-20160802152503-0000_t1_e1_c1_r07_s10.dist -j fjpaper-data/app-20160802152503-0000_t1_e1_c1_r07_s10.jobdat -b 10
+#
 #
 
 from pprint import pprint
 import numpy
 import argparse
 import json
+import gzip
 
 
 def main():
@@ -17,6 +20,8 @@ def main():
                         dest="outfile", required=True)
     parser.add_argument("-d", "--distfile", help="output file for distributions",
                         dest="distfile", required=False)
+    parser.add_argument("-j", "--jobdatafile", help="output file for raw job sojourn times etc",
+                        dest="jobdatafile", required=False)
     parser.add_argument("-b", "--binwidth", help="width of bins used to compute distributions (in ms)",
                         dest="binwidth", type=int, default=1)
     args = parser.parse_args()
@@ -25,7 +30,7 @@ def main():
     events = {}
     stage_to_job_lookup = {}
     
-    with open(args.file, 'r') as f:
+    with gzip.open(args.file, 'r') as f:
         for line in f:
             evt = json.loads(line)
             #pprint(evt)
@@ -98,7 +103,7 @@ def main():
     mean_sojourn_sum = 0.0
     mean_service_sum = 0.0
     mean_n = 0
-    with open(args.outfile, 'w') as f:
+    with open(args.outfile, 'w') as f, open(args.jobdatafile, 'w') as fj:
         for job_id in sorted(events.iterkeys()):
             # if we are processing a log that got truncated or is unfinished
             if 'completion_time' not in events[job_id]:
@@ -139,6 +144,7 @@ def main():
             mean_waiting_sum += job['waiting_time']
             mean_sojourn_sum += job['sojourn_time']
             mean_service_sum += job['sojourn_time'] - job['waiting_time']
+            fj.write("\t".join([str(job_id), str(job['sojourn_time']), str(job['waiting_time']), str(job['sojourn_time'] - job['waiting_time'])])+"\n")
             mean_n += 1
 
     print("mean waiting time: "+str(mean_waiting_sum/mean_n)+"   (n="+str(mean_n)+")")
