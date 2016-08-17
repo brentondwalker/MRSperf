@@ -173,11 +173,20 @@ def main():
                 
         with open(args.distfile, 'w') as f:
             total = 1.0*len(events)
+            sojourn_sum = 0.0
+            waiting_sum = 0.0
+            service_sum = 0.0
             for i in xrange(0, (max_time_interval/bin_width)+1):
+                sojourn_sum += distributions[i]['sojourn']
+                waiting_sum += distributions[i]['waiting']
+                service_sum += distributions[i]['service']
                 f.write("\t".join([str(distributions[i]['dt']),
                                    str(distributions[i]['sojourn']/total),
                                    str(distributions[i]['waiting']/total),
-                                   str(distributions[i]['service']/total)])
+                                   str(distributions[i]['service']/total),
+                                   str(sojourn_sum/total),
+                                   str(waiting_sum/total),
+                                   str(service_sum/total)])
                         +"\n")
 
 
