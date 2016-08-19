@@ -194,7 +194,8 @@ def main():
                                  'waiting': 0,
                                  'service': 0,
                                  'deserialization': 0,
-                                 'scheduler': 0
+                                 'scheduler': 0,
+                                 'run_time': 0
                                 }
         for job_id in sorted(events.iterkeys()):
             # if we are processing a log that got truncated or is unfinished
@@ -211,10 +212,12 @@ def main():
                     task = stage['tasks'][task_id]
                     deserialization_time = task['deserialization_time']
                     scheduler_delay = task['scheduler_delay']
+                    run_time = task['run_time']
                     distributions[deserialization_time]['deserialization'] += 1
-                    print("increment deserialization "+str(deserialization_time)+ " to "+str(distributions[deserialization_time]['deserialization']))
+                    #print("increment deserialization "+str(deserialization_time)+ " to "+str(distributions[deserialization_time]['deserialization']))
                     distributions[scheduler_delay]['scheduler'] += 1
-                    print("increment scheduler "+str(scheduler_delay)+ " to "+str(distributions[scheduler_delay]['scheduler']))
+                    #print("increment scheduler "+str(scheduler_delay)+ " to "+str(distributions[scheduler_delay]['scheduler']))
+                    distributions[run_time/bin_width]['run_time'] += 1
                 
         with open(args.distfile, 'w') as f:
             total = 1.0*len(events)
@@ -223,23 +226,27 @@ def main():
             service_sum = 0.0
             deserialization_sum = 0.0
             scheduler_sum = 0.0
+            run_time_sum = 0.0
             for i in xrange(0, (max_time_interval/bin_width)+1):
                 sojourn_sum += distributions[i]['sojourn']
                 waiting_sum += distributions[i]['waiting']
                 service_sum += distributions[i]['service']
                 deserialization_sum += distributions[i]['deserialization']
                 scheduler_sum += distributions[i]['scheduler']
+                run_time_sum += distributions[i]['run_time']
                 f.write("\t".join([str(distributions[i]['dt']),
                                    str(distributions[i]['sojourn']/total),
                                    str(distributions[i]['waiting']/total),
                                    str(distributions[i]['service']/total),
                                    str((1.0*distributions[i]['deserialization'])/(1.0*total_tasks)),
                                    str((1.0*distributions[i]['scheduler'])/(1.0*total_tasks)),
+                                   str(distributions[i]['run_time']/total_tasks),
                                    str(sojourn_sum/total),
                                    str(waiting_sum/total),
                                    str(service_sum/total),
                                    str(deserialization_sum/total_tasks),
-                                   str(scheduler_sum/total_tasks)])
+                                   str(scheduler_sum/total_tasks),
+                                   str(run_time_sum/total_tasks)])
                         +"\n")
 
 
