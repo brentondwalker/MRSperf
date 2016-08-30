@@ -5,9 +5,7 @@
 # is why we can just re-process the same spark traces to compare this model.  The operation of
 # the system is the same.  It's just how we interpret the job completion statistics.
 #
-# python scripts/process_spark_event_log.py -f workdir/app-20160503103936-0006 -o data/app-20160503103936-0006_t1_r15_s10 -d data/app-20160503103936-0006_t1_r15_s10.dist -b 10
-#
-# python scripts/process_spark_event_log.py -f fjpaper-data/app-20160802152503-0000_t1_e1_c1_r07_s10.gz -o fjpaper-data/app-20160802152503-0000_t1_e1_c1_r07_s10.dat -d fjpaper-data/app-20160802152503-0000_t1_e1_c1_r07_s10.dist -j fjpaper-data/app-20160802152503-0000_t1_e1_c1_r07_s10.jobdat -b 10
+# python scripts/process_spark_event_log_kl.py -l 1 -f fjpaper-data/app-20160802152734-0000_t2_e2_c1_r07_s10.gz -o fjpaper-data/app-20160802152734-0000_t2_e2_c1_r07_s10 -b 10
 #
 #
 
@@ -22,14 +20,12 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("-f", "--file", help="eventlog file to parse",
                         dest="file", required=True)
-    parser.add_argument("-o", "--outfile", help="output file for data",
+    parser.add_argument("-o", "--outfile", help="output file name base",
                         dest="outfile", required=True)
-    parser.add_argument("-d", "--distfile", help="output file for distributions",
-                        dest="distfile", required=False)
-    parser.add_argument("-j", "--jobdatafile", help="output file for raw job sojourn times etc",
-                        dest="jobdatafile", required=False)
     parser.add_argument("-b", "--binwidth", help="width of bins used to compute distributions (in ms)",
                         dest="binwidth", type=int, default=1)
+    parser.add_argument("-d", "--distfile", help="compute distribution of sojourn times etc",
+                        dest="distfile", default=True)
     parser.add_argument("-l", help="number of tasks needed to consider job complete",
                         dest="l", type=int, required=True)
     args = parser.parse_args()
@@ -108,7 +104,7 @@ def main():
                     if ex0_last_task_end==0:
                         ex0_last_task_end = events[job_id]['submission_time']
                         executor_idletime[ex_id] = events[job_id]['submission_time']
-                    print("\t".join([str(ex0_task_count), str(task_id), str(stage_id), str(events[job_id]['submission_time']), str(task['launch_time']), str(task['ending_launch_time']), str(task['deserialization_time']), str(task['run_time']), str(task['finish_time']), str(ex0_last_task_end), str(executor_idletime.get(ex_id, 0)), str(task['finish_time']-task['launch_time']-task['deserialization_time']-task['run_time'])]))
+                    #print("\t".join([str(ex0_task_count), str(task_id), str(stage_id), str(events[job_id]['submission_time']), str(task['launch_time']), str(task['ending_launch_time']), str(task['deserialization_time']), str(task['run_time']), str(task['finish_time']), str(ex0_last_task_end), str(executor_idletime.get(ex_id, 0)), str(task['finish_time']-task['launch_time']-task['deserialization_time']-task['run_time'])]))
                     ex0_task_count += 1
                     ex0_last_task_end = task['finish_time']
                 
@@ -143,7 +139,7 @@ def main():
     mean_deserialization_time_sum = 0.0
     mean_scheduler_delay_sum = 0.0
     mean_n = 0
-    with open(args.outfile, 'w') as f, open(args.jobdatafile, 'w') as fj:
+    with open(args.outfile+"_kl"+str(args.l)+".dat", 'w') as f, open(args.outfile+"_kl"+str(args.l)+".jobdat", 'w') as fj:
         for job_id in sorted(events.iterkeys()):
             # if we are processing a log that got truncated or is unfinished
             if 'completion_time' not in events[job_id]:
@@ -234,7 +230,7 @@ def main():
                     #print("increment scheduler "+str(scheduler_delay)+ " to "+str(distributions[scheduler_delay]['scheduler']))
                     distributions[run_time/bin_width]['run_time'] += 1
                 
-        with open(args.distfile, 'w') as f:
+        with open(args.outfile+"_kl"+str(args.l)+".dist", 'w') as f:
             total = 1.0*len(events)
             sojourn_sum = 0.0
             waiting_sum = 0.0
