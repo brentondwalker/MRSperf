@@ -9,7 +9,7 @@ import org.apache.spark.scheduler._
 import scala.math.random
 
 object PoissonArrivalsErlangService {
-  
+
 	def erlangInterval(serviceRate:Double, k:Int):Double = {
 			var p = 1.0;
 			for (i <- 1 to k) {
@@ -18,7 +18,7 @@ object PoissonArrivalsErlangService {
 
 			return -math.log(p)/serviceRate;
 	}
-  
+
 	def runEmptySlices(spark:SparkContext, slices:Int, serviceRate:Double, k:Int): Long = {
 			println("*** runEmptySlices( "+slices+" , "+serviceRate+" )")
 			val count = spark.parallelize(1 to slices, slices).map { i =>
@@ -39,7 +39,7 @@ object PoissonArrivalsErlangService {
 			}.count()
 			return 0
 	}
-  
+
 	def main(args: Array[String]) {
 		val conf = new SparkConf().setAppName("PoissonArrivalsErlangService")
 				println("*** got conf ***")
@@ -75,7 +75,7 @@ object PoissonArrivalsErlangService {
 				def run() {
 					val startTime = java.lang.System.currentTimeMillis();
 					println("+++ START: "+startTime)
-					runEmptySlices(spark, s, serviceRate)
+					runEmptySlices(spark, s, serviceRate, serviceK)
 					val stopTime = java.lang.System.currentTimeMillis()
 					println("--- STOP: "+stopTime)
 					println("=== ELAPSED: "+(stopTime-startTime))
