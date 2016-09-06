@@ -18,7 +18,7 @@ def main():
                         dest="outfile", required=True)
     parser.add_argument("-b", "--binwidth", help="width of bins used to compute distributions (in ms)",
                         dest="binwidth", type=int, default=1)
-    parser.add_argument("-d", "--distfile", type=boolean, help="compute distribution of sojourn times etc",
+    parser.add_argument("-d", "--distfile", action='store_true', help="compute distribution of sojourn times etc",
                         default=True)
     args = parser.parse_args()
     
