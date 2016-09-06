@@ -18,8 +18,8 @@ def main():
                         dest="outfile", required=True)
     parser.add_argument("-b", "--binwidth", help="width of bins used to compute distributions (in ms)",
                         dest="binwidth", type=int, default=1)
-    parser.add_argument("-d", "--distfile", help="compute distribution of sojourn times etc",
-                        dest="distfile", default=True)
+    parser.add_argument("-d", "--distfile", type=boolean, help="compute distribution of sojourn times etc",
+                        default=True)
     args = parser.parse_args()
     
     # dict of events, indexed by job ID
