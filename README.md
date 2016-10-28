@@ -18,11 +18,25 @@ sbt assembly
 The jar file will be put in `target/scala-2.10/spark-arrivals-assembly-1.0.jar`.
 
 
+## Run
+
+This package is intended to be run with a large number of workers with one core each.  See the next section on how to set that up.
+
+To submit the job you need the name/ip of the master.  Here is an example that runs an experiment with exponential arrivals with rate 0.7 and exponential service times with rate 1.0.
+```
+export SPARKHOME=<your_spark_directory>
+export SPARKARRIVALS=<your_spark-arrivals_directory>
+export SPARK_MASTER="<ip_or_name_of_spark_master>"
+
+cd $SPARKHOME
+bin/spark-submit --master spark://$SPARK_MASTER:7077 --class sparkarrivals.ThreadedMapJobs $SPARKARRIVALS/target/scala-2.10/spark-arrivals-assembly-1.0.jar -n <num-jobs> -t <tasks_per_job> -w <num_workers> -A x 0.7 -S x 1.0
+```
+
 ## Running Spark
 
 ### Spark Docker Containers
 
-To better conform to the queueing-theoretic models, this package is intended to be run with a large number of workers with one core each.  Of course most servers have lots of cores.  We can still run many independent single-core workers on each node by using [docker containers](https://www.docker.com/).  This set-up is based on containers used for Spark unit and integration testing.  They cite the following:
+To better conform to the queueing-theoretic models, this package is intended to be run with a Spark cluster in [stand-alone mode](http://spark.apache.org/docs/1.6.2/spark-standalone.html) with a large number of workers with one core each.  Of course most servers have lots of cores.  We can still run many independent single-core workers on each node by using [docker containers](https://www.docker.com/).  This set-up is based on containers used for Spark unit and integration testing.  They cite the following:
 ```
 Drawn from Matt Massie's docker files (https://github.com/massie/dockerfiles),
 as well as some updates from Andre Schumacher (https://github.com/AndreSchumacher/docker).
@@ -38,7 +52,7 @@ cd docker
 
 ### Start Spark Master
 
-There is only one master, and it can be run outside a container.  We include a Spark config file to use in `spark-configs/spark-master-defaults.conf`.  The configuration enables event logs (that will be the data recorded in our experiments) and puts them in /mnt/event-logs/.  You may want to change that.  The files can get very large.
+There is only one master, and it can be run outside a container.  We include a Spark config file to use in `spark-configs/spark-master-defaults.conf`.  The configuration enables event logs (that will be the data recorded in our experiments) and puts them in /mnt/event-logs/ on the server running Spark master.  You may want to change that.  The files can get very large.
 ```
 export SPARKHOME=<your_spark_directory>
 export SPARKARRIVALS=<your_spark-arrivals_directory>
@@ -79,7 +93,7 @@ The jobs only have a single map stage.  The shuffle/reduce is a trivial `count()
 The jobs are submitted from separate threads.  This means that a job can be queued before the previous job completes, and if one job has a particularly time-consuming task, jobs can overtake each other and finish out-of-order.  This is a characteristic (and a feature) of non-idling single-queue fork-join systems.
 
 If the jobs were submitted from a single thread, then each job could not start processing until all tasks of the previous thread completed.  Then system would behave like a split-merge system, which generally has much worse performance.  In such a system the workers spend time idling when there are jobs waiting to process.
- 
+
 
 
 
