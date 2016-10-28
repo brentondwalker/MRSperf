@@ -19,7 +19,7 @@ import org.apache.commons.cli.ParseException;
 import scala.math.random
 
 
-object ThreaddedMapJobs {
+object ThreadedMapJobs {
   
   
   /**
@@ -40,18 +40,23 @@ object ThreaddedMapJobs {
 		// I'm trying to re-use code here, but using OptionBuilder from commons-cli 1.2
 		// in scala is problematic because it has these static methods and the have to
 		// be called on the class in scala.
+		//OptionBuilder.isRequired();
+		//OptionBuilder.hasArg();
+		//OptionBuilder.withDescription("the base name of the output files");
+		//OptionBuilder.withLongOpt("outfile");
+		//cli_options.addOption(OptionBuilder.create("o"));
+		//OptionBuilder.hasArgs();
+		//OptionBuilder.withDescription("queue type and arguments");
+		//OptionBuilder.withLongOpt("queuetype");
+		//cli_options.addOption(OptionBuilder.create("q"));
+	
 		OptionBuilder.isRequired();
-		OptionBuilder.hasArg();
-		OptionBuilder.withDescription("the base name of the output files");
-		OptionBuilder.withLongOpt("outfile");
-		cli_options.addOption(OptionBuilder.create("o"));
 		OptionBuilder.hasArgs();
-		OptionBuilder.withDescription("queue type and arguments");
-		OptionBuilder.withLongOpt("queuetype");
-		cli_options.addOption(OptionBuilder.create("q"));
 		OptionBuilder.withDescription("arrival process");
 		OptionBuilder.withLongOpt("arrivalprocess");
 		cli_options.addOption(OptionBuilder.create("A"));
+		OptionBuilder.isRequired();
+		OptionBuilder.hasArgs();
 		OptionBuilder.withDescription("service process");
 		OptionBuilder.withLongOpt("serviceprocess");
 		cli_options.addOption(OptionBuilder.create("S"));
@@ -124,22 +129,24 @@ object ThreaddedMapJobs {
    * Each slice returns 1, and we do a count() to force Spark to execute the slices.
    * Therefore the shuffle/reduce step is trivial.
    * 
+   * Note: the stdout produced from these println() will appear on the stdout of the workers,
+   *       not the driver.  I could just as well remove it.
    */
-  def runEmptySlices(spark:SparkContext, slices: Int, serviceProcess: () => Double): Long = {
-    println("*** runEmptySlices( "+slices+" )")
+  def runEmptySlices(spark:SparkContext, slices: Int, serviceProcess: () => Double, jobId: Int): Long = {
     spark.parallelize(1 to slices, slices).map { i =>
+      val taskId = i
       val jobLength = serviceProcess()
       val startTime = java.lang.System.currentTimeMillis()
       val targetStopTime = startTime + 1000*jobLength
-			println("    +++ START: "+startTime)
+			println("    +++ TASK "+jobId+"."+taskId+" START: "+startTime)
 			while (java.lang.System.currentTimeMillis() < targetStopTime) {
 				val x = random * 2 - 1
 				val y = random * 2 - 1
 			}
 
       val stopTime = java.lang.System.currentTimeMillis()
-      println("    --- STOP: "+stopTime)
-      println("    === ELAPSED: "+(stopTime-startTime))
+      println("    --- TASK "+jobId+"."+taskId+" STOP: "+stopTime)
+      println("    === TASK "+jobId+"."+taskId+" ELAPSED: "+(stopTime-startTime))
       1
     }.count()
   }
@@ -153,63 +160,65 @@ object ThreaddedMapJobs {
    * 
    */
   def main(args: Array[String]) {
-    
-    val options: CommandLine = parseArgs(args)
-    
+
+	  val options: CommandLine = parseArgs(args);
+
     val arrivalProcess = parseProcessArgs(options.getOptionValues("A"))
     val serviceProcess = parseProcessArgs(options.getOptionValues("S"))
-    
-	  val conf = new SparkConf().setAppName("PoissonServiceArrivals")
-	  println("*** got conf ***")
-		val spark = new SparkContext(conf)
-		println("*** got spark context ***")
+
+    val totalJobs = if (options.hasOption("n")) options.getOptionValue("n").toInt else 0
+		val slicesPerJob = if (options.hasOption("t")) options.getOptionValue("t").toInt else 1
+		val numWorkers = if (options.hasOption("w")) options.getOptionValue("w").toInt else 1
 		
-		val totalSlices = if (args.length > 0) args(0).toInt else 2
-		val slicesPerStep = if (args.length > 1) args(1).toInt else 1
-		val rate = if (args.length > 2) args(2).toDouble else 0.2
-		val serviceRate = if (args.length > 3) args(3).toDouble else 1.0
-		var totalJobs = totalSlices/slicesPerStep
-		if ((totalSlices%slicesPerStep) > 0) {
-		  totalJobs += 1
-		}
-		println("*** totalSlices = "+totalSlices+" ***")
-		println("*** slicesPerStep = "+slicesPerStep+" ***")
-  	println("*** totalJobs = "+totalJobs+" ***")
-		var slicesRun = 0
+	  val conf = new SparkConf()
+	    .setAppName("ThreadedMapJobs")
+	    .set("spark.cores.max", numWorkers.toString())
+		val spark = new SparkContext(conf)		
 		
 		// give the system a little time for the executors to start... 30 seconds?
 		// this is stupid b/c the full set of executors actually take less tha 1s to start
 		print("Waiting a moment to let the executors start...")
-		Thread sleep 1000*30
-		print("done waiting!")
-		
+		Thread sleep 1000*10
+    		
+		// check how many cores were actually allocated
+		// one core in the list will be the driver.  The rest should be workers
+		// http://stackoverflow.com/questions/39162063/spark-how-many-executors-and-cores-are-allocated-to-my-spark-job
+		val coresAllocated = spark.getExecutorMemoryStatus.map(_._1).toList.length - 1
+		println("*** coresAllocated = "+coresAllocated+" ***")
+    if (coresAllocated != numWorkers) {
+      println("ERROR: could only allocate "+coresAllocated+" workers ("+numWorkers+" requested) - exiting.")
+      spark.stop()
+      System.exit(1)
+    }
+    
+		var jobsRun = 0
 		var doneSignal: CountDownLatch = new CountDownLatch(totalJobs)
 		val initialTime = java.lang.System.currentTimeMillis()
-		while (slicesRun < totalSlices) {
+		while (jobsRun < totalJobs) {
 			println("")
-			var s = math.min(slicesPerStep, (totalSlices - slicesRun));
 			val t = new Thread(new Runnable {
 				def run() {
+				  val jobId = jobsRun
 					val startTime = java.lang.System.currentTimeMillis();
-					println("+++ START: "+startTime)
-					runEmptySlices(spark, s, serviceProcess)
+					println("+++ JOB "+jobId+" START: "+startTime)
+					runEmptySlices(spark, slicesPerJob, serviceProcess, jobId)
 					val stopTime = java.lang.System.currentTimeMillis()
-					println("--- STOP: "+stopTime)
-					println("=== ELAPSED: "+(stopTime-startTime))
-					println("=== TOTAL ELAPSED: "+(1.0*(stopTime-initialTime)/1000.0))
+					println("--- JOB "+jobId+" STOP: "+stopTime)
+					println("=== JOB "+jobId+" ELAPSED: "+(stopTime-startTime))
+					//println("=== JOB "+jobId+" TOTAL ELAPSED: "+(1.0*(stopTime-initialTime)/1000.0))
 					doneSignal.countDown()
 				}
 			});
-			slicesRun += s;
+			jobsRun += 1;
 			t.start()
-
+			
 			val interarrivalTime = arrivalProcess()
 			println("*** inter-arrival time: "+interarrivalTime+" ***")
 			Thread sleep math.round(interarrivalTime * 1000)
 
 		}
-		println("*** FINISHED!! ***")
 		doneSignal.await()
+		println("*** FINISHED!! ***")
 		spark.stop()
   }
   
