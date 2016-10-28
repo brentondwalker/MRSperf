@@ -38,7 +38,7 @@ cd docker
 
 ### Start Spark Master
 
-There is only one master, and it can be run outside a container.  We include a Spark config file to use in `spark-configs/spark-defaults.conf`.  The configuration enables event logs (that will be the data recorded in our experiments) and puts them in /mnt/event-logs/.  You may want to change that.  The files can get very large.
+There is only one master, and it can be run outside a container.  We include a Spark config file to use in `spark-configs/spark-master-defaults.conf`.  The configuration enables event logs (that will be the data recorded in our experiments) and puts them in /mnt/event-logs/.  You may want to change that.  The files can get very large.
 ```
 export SPARKHOME=<your_spark_directory>
 export SPARKARRIVALS=<your_spark-arrivals_directory>
