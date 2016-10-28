@@ -29,7 +29,7 @@ export SPARKARRIVALS=<your_spark-arrivals_directory>
 export SPARK_MASTER="<ip_or_name_of_spark_master>"
 
 cd $SPARKHOME
-bin/spark-submit --master spark://$SPARK_MASTER:7077 --conf spark.cores.max=<num_workers> --class sparkarrivals.ThreadedMapJobs $SPARKARRIVALS/target/scala-2.10/spark-arrivals-assembly-1.0.jar -n <num-jobs> -w <num_workers> -A x 0.7 -S x 1.0
+bin/spark-submit --master spark://$SPARK_MASTER:7077 --class sparkarrivals.ThreadedMapJobs $SPARKARRIVALS/target/scala-2.10/spark-arrivals-assembly-1.0.jar -n <num-jobs> -t <tasks_per_job> -w <num_workers> -A x 0.7 -S x 1.0
 ```
 
 ## Running Spark
@@ -52,7 +52,7 @@ cd docker
 
 ### Start Spark Master
 
-There is only one master, and it can be run outside a container.  We include a Spark config file to use in `spark-configs/spark-master-defaults.conf`.  The configuration enables event logs (that will be the data recorded in our experiments) and puts them in /mnt/event-logs/.  You may want to change that.  The files can get very large.
+There is only one master, and it can be run outside a container.  We include a Spark config file to use in `spark-configs/spark-master-defaults.conf`.  The configuration enables event logs (that will be the data recorded in our experiments) and puts them in /mnt/event-logs/ on the server running Spark master.  You may want to change that.  The files can get very large.
 ```
 export SPARKHOME=<your_spark_directory>
 export SPARKARRIVALS=<your_spark-arrivals_directory>
@@ -93,7 +93,7 @@ The jobs only have a single map stage.  The shuffle/reduce is a trivial `count()
 The jobs are submitted from separate threads.  This means that a job can be queued before the previous job completes, and if one job has a particularly time-consuming task, jobs can overtake each other and finish out-of-order.  This is a characteristic (and a feature) of non-idling single-queue fork-join systems.
 
 If the jobs were submitted from a single thread, then each job could not start processing until all tasks of the previous thread completed.  Then system would behave like a split-merge system, which generally has much worse performance.  In such a system the workers spend time idling when there are jobs waiting to process.
- 
+
 
 
 
