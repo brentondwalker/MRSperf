@@ -29,7 +29,7 @@ export SPARKARRIVALS=<your_spark-arrivals_directory>
 export SPARK_MASTER="<ip_or_name_of_spark_master>"
 
 cd $SPARKHOME
-bin/spark-submit --master spark://$SPARK_MASTER:7077 --conf spark.cores.max=<num_workers> --class ThreadedMapJobs $SPARKARRIVALS/target/scala-2.10/spark-arrivals-assembly-1.0.jar -n <num-jobs> -w <num_workers> -A x 0.7 -S x 1.0
+bin/spark-submit --master spark://$SPARK_MASTER:7077 --conf spark.cores.max=<num_workers> --class sparkarrivals.ThreadedMapJobs $SPARKARRIVALS/target/scala-2.10/spark-arrivals-assembly-1.0.jar -n <num-jobs> -w <num_workers> -A x 0.7 -S x 1.0
 ```
 
 ## Running Spark
