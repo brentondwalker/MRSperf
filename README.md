@@ -18,11 +18,25 @@ sbt assembly
 The jar file will be put in `target/scala-2.10/spark-arrivals-assembly-1.0.jar`.
 
 
+## Run
+
+This package is intended to be run with a large number of workers with one core each.  See the next section on how to set that up.
+
+To submit the job you need the name/ip of the master.  Here is an example that runs an experiment with exponential arrivals with rate 0.7 and exponential service times with rate 1.0.
+```
+export SPARKHOME=<your_spark_directory>
+export SPARKARRIVALS=<your_spark-arrivals_directory>
+export SPARK_MASTER="<ip_or_name_of_spark_master>"
+
+cd $SPARKHOME
+bin/spark-submit --master spark://$SPARK_MASTER:7077 --conf spark.cores.max=<num_workers> --class ThreadedMapJobs $SPARKARRIVALS/target/scala-2.10/spark-arrivals-assembly-1.0.jar -n <num-jobs> -w <num_workers> -A x 0.7 -S x 1.0
+```
+
 ## Running Spark
 
 ### Spark Docker Containers
 
-To better conform to the queueing-theoretic models, this package is intended to be run with a large number of workers with one core each.  Of course most servers have lots of cores.  We can still run many independent single-core workers on each node by using [docker containers](https://www.docker.com/).  This set-up is based on containers used for Spark unit and integration testing.  They cite the following:
+To better conform to the queueing-theoretic models, this package is intended to be run with a Spark cluster in [stand-alone mode](http://spark.apache.org/docs/1.6.2/spark-standalone.html) with a large number of workers with one core each.  Of course most servers have lots of cores.  We can still run many independent single-core workers on each node by using [docker containers](https://www.docker.com/).  This set-up is based on containers used for Spark unit and integration testing.  They cite the following:
 ```
 Drawn from Matt Massie's docker files (https://github.com/massie/dockerfiles),
 as well as some updates from Andre Schumacher (https://github.com/AndreSchumacher/docker).
