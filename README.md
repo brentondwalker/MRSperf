@@ -32,6 +32,53 @@ cd $SPARKHOME
 bin/spark-submit --master spark://$SPARK_MASTER:7077 --class sparkarrivals.ThreadedMapJobs $SPARKARRIVALS/target/scala-2.10/spark-arrivals-assembly-1.0.jar -n <num-jobs> -t <tasks_per_job> -w <num_workers> -A x 0.7 -S x 1.0
 ```
 
+## Processing Results
+
+The data from an experiment is stored in an event log, probably on the machine where the job is submitted from, or possibly on the machine running the Spark master depending on how you configure your system.  Make sure in your spark configuration.  The event log files will have names like `app-20161028095007-0003` and contain data in JSON format.
+
+We include a python script, `process_spark_event_log.py` to extract the useful data from these JSON files.
+```
+usage: process_spark_event_log.py [-h] -f FILE -o OUTFILE [-b BINWIDTH] [-d]
+                                  [-z]
+
+optional arguments:
+  -h, --help            show this help message and exit
+  -f FILE, --file FILE  eventlog file to parse
+  -o OUTFILE, --outfile OUTFILE
+                        output file name base
+  -b BINWIDTH, --binwidth BINWIDTH
+                        width of bins used to compute distributions (in ms)
+  -d, --distfile        compute distribution of sojourn times etc
+  -z, --infile-gzipped  input file is gzipped
+```
+
+For example:
+```
+python scripts/process_spark_event_log.py -f ~/eventlogs/app-20161028155421-0011 -o mydata -b 10 -d
+mean waiting time: 17.8   (n=10)
+mean sojourn time: 28689.2   (n=10)
+mean service time: 28671.4   (n=10)
+mean_deserialization_time: 7888.68   (n=50)
+mean_scheduler_delay: 25.62   (n=50)
+```
+
+This produces two or three ouput files, each with a name prefixed with whatever is given with the `-o <filebase>` option.
+* Job data file `<filebase>.jobdat` contains job_id, job_sojourn_time, job_waiting_time, (job_sojourn_time - job_waiting_time)
+* Experiment path file `<filebase>.path` contains per-task timing information for the events related to each task.
+* Distributions file `<filebase>.dist` (if requested with the `-d` option) contains histograms of the job sojourn, waiting, and service times, as well as task deserialization time and scheduler delay.  The deserialization time and scheduler delay are binned at the maximum 1ms resoloution reported by Spark.  The other statistics are binned with binwidth specified with the `-b` argument.
+
+For example, if we want to plot the experiment path with gnuplot:
+```
+plot 'mydata.path' using 3:4 with line title "job arrival"
+replot 'mydata.path' using 3:6 with line title "task start"
+replot 'mydata.path' using 3:7 with line title "task completion"
+replot 'mydata.path' using 3:5 with line title "job departure"
+```
+
+#### Note on waiting times
+This script computes the job waiting time as the time from job arrival until he first task stars service, and the service time as the time from the first task starting service until the job departs.  This is different from a lot of FJ queueing theory convention where these quantities are computed relative to when the *last* task starts service.  This is just what made sense to me.  All the information is still there, and the computation is easy to change if desired.
+
+
 ## Running Spark
 
 ### Spark Docker Containers
