@@ -70,8 +70,8 @@ This produces two or three ouput files, each with a name prefixed with whatever 
 For example, if we want to plot the experiment path with gnuplot:
 ```
 plot 'mydata.path' using 3:4 with line title "job arrival"
-replot 'mydata.path' using 3:6 with line title "task start"
-replot 'mydata.path' using 3:7 with line title "task completion"
+replot 'mydata.path' using 3:8 with line title "task start"
+replot 'mydata.path' using 3:9 with line title "task completion"
 replot 'mydata.path' using 3:5 with line title "job departure"
 ```
 
