@@ -33,12 +33,10 @@ object ThreadedMapJobs {
    */
   def parseArgs(args: Array[String]): CommandLine = {
     val cli_options: Options = new Options();
-		cli_options.addOption("h", "help", false, "print help message");
+		//cli_options.addOption("h", "help", false, "print help message");
 		cli_options.addOption("w", "numworkers", true, "number of workers/servers");
 		cli_options.addOption("t", "numtasks", true, "number of tasks per job");
 		cli_options.addOption("n", "numsamples", true, "number of samples to produce.  Multiply this by the sampling interval to get the number of jobs that will be run");
-		cli_options.addOption("i", "samplinginterval", true, "samplig interval");
-		cli_options.addOption("p", "savepath", true, "save some iterations of the simulation path (arrival time, service time etc...)");
 
 		// I'm trying to re-use code here, but using OptionBuilder from commons-cli 1.2
 		// in scala is problematic because it has these static methods and the have to
@@ -61,7 +59,7 @@ object ThreadedMapJobs {
 		} catch {
 		case e: ParseException => {
 			val formatter: HelpFormatter = new HelpFormatter();
-			formatter.printHelp("FJSimulator", cli_options);
+			formatter.printHelp(this.getClass.getSimpleName, cli_options);
 			e.printStackTrace();
 			System.exit(0);
 		}
@@ -147,7 +145,7 @@ object ThreadedMapJobs {
    *        identical RNGs to the workers, and generating identical service times.
    */
   def runEmptySlices(spark:SparkContext, slices: Int, serviceTimes: List[Double], jobId: Int): Long = {
-    println("serviceTimes = "+serviceTimes)
+    //println("serviceTimes = "+serviceTimes)
     spark.parallelize(1 to slices, slices).map { i =>
       val taskId = i
       val jobLength = serviceTimes(i-1)
@@ -221,6 +219,7 @@ object ThreadedMapJobs {
 					// we would like to pass the serviceProcess in to this method and let the workers
 					// generate their own service times, but in some cases they end up generating
 					// from identical RNGs, and get the same result.  So we generate the service times here.
+					// These are actually generated in different threads, but it's the same process, same JVM.
 					runEmptySlices(spark, slicesPerJob, List.tabulate(slicesPerJob)(n => serviceProcess()), jobId)
 					
 					val stopTime = java.lang.System.currentTimeMillis()
