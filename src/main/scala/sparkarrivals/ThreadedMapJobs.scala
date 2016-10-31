@@ -16,6 +16,9 @@ import org.apache.commons.cli.HelpFormatter;
 import org.apache.commons.cli.Options;
 import org.apache.commons.cli.ParseException;
 
+import org.apache.commons.math3.special.Gamma;
+import org.apache.commons.math3.distribution.WeibullDistribution;
+
 import scala.math.random
 
 
@@ -40,16 +43,6 @@ object ThreadedMapJobs {
 		// I'm trying to re-use code here, but using OptionBuilder from commons-cli 1.2
 		// in scala is problematic because it has these static methods and the have to
 		// be called on the class in scala.
-		//OptionBuilder.isRequired();
-		//OptionBuilder.hasArg();
-		//OptionBuilder.withDescription("the base name of the output files");
-		//OptionBuilder.withLongOpt("outfile");
-		//cli_options.addOption(OptionBuilder.create("o"));
-		//OptionBuilder.hasArgs();
-		//OptionBuilder.withDescription("queue type and arguments");
-		//OptionBuilder.withLongOpt("queuetype");
-		//cli_options.addOption(OptionBuilder.create("q"));
-	
 		OptionBuilder.isRequired();
 		OptionBuilder.hasArgs();
 		OptionBuilder.withDescription("arrival process");
@@ -61,7 +54,6 @@ object ThreadedMapJobs {
 		OptionBuilder.withLongOpt("serviceprocess");
 		cli_options.addOption(OptionBuilder.create("S"));
 		
-		//CommandLineParser parser = new DefaultParser();
 		val parser: CommandLineParser = new PosixParser();
 		var options: CommandLine = null;
 		try {
@@ -114,10 +106,28 @@ object ThreadedMapJobs {
     	    	}
     	    	-Math.log(p)/rate
     	    } )
-    	  }    	    
+    	  }
+    	  
+    	  // Weibull
+    	  case "w" if (args.length == 2 || args.length == 3) => {
+    	    val shape = args(1).toDouble
+    	    var scale = 1.0
+    	    if (args.length == 3) {
+    	      scale = args(2).toDouble
+    	    } else {
+    	      scale = 1.0/Gamma.gamma(1.0 + 1.0/shape);
+    	    }
+    	    val weibul = new WeibullDistribution(shape, scale)
+    	    ( () => weibul.sample() )
+    	  }
+    	  
+    	  // otherwise
+    	  case _ => {
+    	    println("\n\nWARNING: unrecognized random process spec: \""+args.mkString(" ")+"\"  Using constant rate of 1.0\n\n")
+    	    () => 1.0
+    	  }
     	}
     }
-    () => 1.0
   }
   
   /**
