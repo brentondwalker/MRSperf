@@ -135,6 +135,21 @@ Our intention is that this project will contain programs producing many types of
 
 This program submits jobs with arrival times governed by a random arrival process, containing tasks with service times govered by a random service process.  The number of tasks per job is also contollable, but constant throughout a run of the prgram.  
 
+```
+usage: ThreadedMapJobs$
+ -A,--arrivalprocess           arrival process
+ -h,--help                     print help message
+ -i,--samplinginterval <arg>   samplig interval
+ -n,--numsamples <arg>         number of samples to produce.  Multiply
+                               this by the sampling interval to get the
+                               number of jobs that will be run
+ -p,--savepath <arg>           save some iterations of the simulation path
+                               (arrival time, service time etc...)
+ -S,--serviceprocess <arg>     service process
+ -t,--numtasks <arg>           number of tasks per job
+ -w,--numworkers <arg>         number of workers/servers
+```
+
 The jobs only have a single map stage.  The shuffle/reduce is a trivial `count()` of the completed tasks.
 
 The jobs are submitted from separate threads.  This means that a job can be queued before the previous job completes, and if one job has a particularly time-consuming task, jobs can overtake each other and finish out-of-order.  This is a characteristic (and a feature) of non-idling single-queue fork-join systems.
