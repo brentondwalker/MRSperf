@@ -138,13 +138,7 @@ This program submits jobs with arrival times governed by a random arrival proces
 ```
 usage: ThreadedMapJobs$
  -A,--arrivalprocess           arrival process
- -h,--help                     print help message
- -i,--samplinginterval <arg>   samplig interval
- -n,--numsamples <arg>         number of samples to produce.  Multiply
-                               this by the sampling interval to get the
-                               number of jobs that will be run
- -p,--savepath <arg>           save some iterations of the simulation path
-                               (arrival time, service time etc...)
+ -n,--numsamples <arg>         number of jobs to run
  -S,--serviceprocess <arg>     service process
  -t,--numtasks <arg>           number of tasks per job
  -w,--numworkers <arg>         number of workers/servers
