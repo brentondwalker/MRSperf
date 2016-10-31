@@ -1,3 +1,5 @@
+package sparkarrivals;
+
 import org.apache.spark.SparkContext
 import org.apache.spark.SparkContext._
 import org.apache.spark.SparkConf
@@ -8,12 +10,12 @@ import org.apache.spark.scheduler._
 
 import scala.math.random
 
-object PoissonServiceArrivals {
+object PoissonArrivals {
   
-  def runEmptySlices(spark:SparkContext, slices:Int, serviceRate: Double): Long = {
-    println("*** runEmptySlices( "+slices+" , "+serviceRate+" )")
+  def runEmptySlices(spark:SparkContext, slices:Int): Long = {
+    println("*** runEmptySlices( "+slices+" )")
     val count = spark.parallelize(1 to slices, slices).map { i =>
-      val jobLength = -math.log(random)/serviceRate
+      val jobLength = 1
       val startTime = java.lang.System.currentTimeMillis()
       val targetStopTime = startTime + 1000*jobLength
 			println("    +++ START: "+startTime)
@@ -32,15 +34,20 @@ object PoissonServiceArrivals {
   
   def main(args: Array[String]) {
 	  //val conf = new SparkConf().setMaster("local[1]").setAppName("PoissonArrivals")
-	  val conf = new SparkConf().setAppName("PoissonServiceArrivals")
+	  val conf = new SparkConf().setAppName("PoissonArrivals")
 	  println("*** got conf ***")
 		val spark = new SparkContext(conf)
 		println("*** got spark context ***")
 		
+		//val scheduler: TaskSchedulerImpl = 
+		//spark.taskScheduler
+		//spark.getConf
+		//println("*** got taskScheduler ***")
+		//println(scheduler)
+		
 		val totalSlices = if (args.length > 0) args(0).toInt else 2
 		val slicesPerStep = if (args.length > 1) args(1).toInt else 1
 		val rate = if (args.length > 2) args(2).toDouble else 0.2
-		val serviceRate = if (args.length > 3) args(3).toDouble else 1.0
 		var totalJobs = totalSlices/slicesPerStep
 		if ((totalSlices%slicesPerStep) > 0) {
 		  totalJobs += 1
@@ -49,13 +56,6 @@ object PoissonServiceArrivals {
 		println("*** slicesPerStep = "+slicesPerStep+" ***")
   	println("*** totalJobs = "+totalJobs+" ***")
 		var slicesRun = 0
-		
-		// give the system a little time for the executors to start... 30 seconds?
-		// this is stupid b/c the full set of executors actually take less tha 1s to start
-		print("Waiting a moment to let the executors start...")
-		Thread sleep 1000*30
-		print("done waiting!")
-		
 		var doneSignal: CountDownLatch = new CountDownLatch(totalJobs)
 		val initialTime = java.lang.System.currentTimeMillis()
 		while (slicesRun < totalSlices) {
@@ -65,7 +65,7 @@ object PoissonServiceArrivals {
 				def run() {
 					val startTime = java.lang.System.currentTimeMillis();
 					println("+++ START: "+startTime)
-					runEmptySlices(spark, s, serviceRate)
+					runEmptySlices(spark, s)
 					val stopTime = java.lang.System.currentTimeMillis()
 					println("--- STOP: "+stopTime)
 					println("=== ELAPSED: "+(stopTime-startTime))
