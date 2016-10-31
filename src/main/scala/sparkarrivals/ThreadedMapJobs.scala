@@ -141,11 +141,16 @@ object ThreadedMapJobs {
    * 
    * Note: the stdout produced from these println() will appear on the stdout of the workers,
    *       not the driver.  I could just as well remove it.
+   *       
+   *  Note: I would like to pass in the serviceProcess instead of a list of serviceTimes, but since
+   *        this is parallelized I ran into the problem that in some cases we would be passing
+   *        identical RNGs to the workers, and generating identical service times.
    */
-  def runEmptySlices(spark:SparkContext, slices: Int, serviceProcess: () => Double, jobId: Int): Long = {
+  def runEmptySlices(spark:SparkContext, slices: Int, serviceTimes: List[Double], jobId: Int): Long = {
+    println("serviceTimes = "+serviceTimes)
     spark.parallelize(1 to slices, slices).map { i =>
       val taskId = i
-      val jobLength = serviceProcess()
+      val jobLength = serviceTimes(i-1)
       val startTime = java.lang.System.currentTimeMillis()
       val targetStopTime = startTime + 1000*jobLength
 			println("    +++ TASK "+jobId+"."+taskId+" START: "+startTime)
@@ -204,14 +209,20 @@ object ThreadedMapJobs {
 		var jobsRun = 0
 		var doneSignal: CountDownLatch = new CountDownLatch(totalJobs)
 		val initialTime = java.lang.System.currentTimeMillis()
+
 		while (jobsRun < totalJobs) {
 			println("")
 			val t = new Thread(new Runnable {
-				def run() {
+			  def run() {
 				  val jobId = jobsRun
 					val startTime = java.lang.System.currentTimeMillis();
 					println("+++ JOB "+jobId+" START: "+startTime)
-					runEmptySlices(spark, slicesPerJob, serviceProcess, jobId)
+					
+					// we would like to pass the serviceProcess in to this method and let the workers
+					// generate their own service times, but in some cases they end up generating
+					// from identical RNGs, and get the same result.  So we generate the service times here.
+					runEmptySlices(spark, slicesPerJob, List.tabulate(slicesPerJob)(n => serviceProcess()), jobId)
+					
 					val stopTime = java.lang.System.currentTimeMillis()
 					println("--- JOB "+jobId+" STOP: "+stopTime)
 					println("=== JOB "+jobId+" ELAPSED: "+(stopTime-startTime))
