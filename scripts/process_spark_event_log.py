@@ -20,6 +20,8 @@ def main():
                         dest="binwidth", type=int, default=1)
     parser.add_argument("-d", "--distfile", action='store_true', help="compute distribution of sojourn times etc",
                         default=True)
+    parser.add_argument("-z", "--infile-gzipped", help="input file is gzipped",
+                        dest="infile_gzipped", action='store_true', default=False)
     args = parser.parse_args()
     
     # dict of events, indexed by job ID
@@ -31,7 +33,11 @@ def main():
     ex0_task_count = 0
     ex0_last_task_end = 0
     
-    with gzip.open(args.file, 'r') as f:
+    if args.infile_gzipped:
+        f = gzip.open(args.file, 'r')
+    else:
+        f = open(args.file, 'r')
+    with f:
         for line in f:
             evt = json.loads(line)
             #pprint(evt)
@@ -124,6 +130,8 @@ def main():
     mean_deserialization_time_sum = 0.0
     mean_scheduler_delay_sum = 0.0
     mean_n = 0
+    bin_width = args.binwidth
+
     with open(args.outfile+".dat", 'w') as f, open(args.outfile+".jobdat", 'w') as fj:
         for job_id in sorted(events.iterkeys()):
             # if we are processing a log that got truncated or is unfinished
@@ -134,7 +142,14 @@ def main():
             job_sub_time = job['submission_time']
             job_completion_time = job['completion_time']
             job['sojourn_time'] = job_completion_time - job_sub_time
+            
+            # the sojourn time of the job should be longer than any of the
+            # components of any of the tasks, but since the deserialization_time
+            # and scheduler_delay are so small we bin them at full resoloution, not
+            # using the binwidth.  Therefore in some cases the bin of a deserialization_time
+            # sample could be greater than the bin of the job sojourn_time.
             max_time_interval = max(max_time_interval, job['sojourn_time'])
+            
             first_task_launch_time = 0
             for stage_id in sorted(job['stages'].iterkeys()):
                 #print("stage_id: "+str(stage_id))
@@ -155,6 +170,7 @@ def main():
                     run_time = task['run_time']
                     deserialization_time = task['deserialization_time']
                     scheduler_delay = task['scheduler_delay']
+                    max_time_interval = max(max_time_interval, bin_width*deserialization_time, bin_width*scheduler_delay)
                     
                     f.write("\t".join([str(job_id), str(stage_id), str(task_id), \
                                     str(job_sub_time), str(job_completion_time), \
@@ -181,7 +197,6 @@ def main():
     print("mean_scheduler_delay: "+str(mean_scheduler_delay_sum/total_tasks)+"   (n="+str(total_tasks)+")")
     
     if args.distfile:
-        bin_width = args.binwidth
         distributions = {}
         for i in xrange(0, (max_time_interval/bin_width)+1):
             distributions[i] = {
