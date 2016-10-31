@@ -132,7 +132,7 @@ def main():
     mean_n = 0
     bin_width = args.binwidth
 
-    with open(args.outfile+".dat", 'w') as f, open(args.outfile+".jobdat", 'w') as fj:
+    with open(args.outfile+".path", 'w') as f, open(args.outfile+".jobdat", 'w') as fj:
         for job_id in sorted(events.iterkeys()):
             # if we are processing a log that got truncated or is unfinished
             if 'completion_time' not in events[job_id]:
