@@ -207,7 +207,7 @@ object InPlaceMultistageMap {
   
   
   def recursiveInPlaceEmptyRounds(rdd: RDD[(Int, Iterable[Int])], serviceTimes: List[List[Double]], jobId: Int, remaining_rounds: Int): RDD[(Int, Iterable[Int])] = {
-    if (remaining_rounds == 1) {
+    if (remaining_rounds == 0) {
       rdd
     } else {
     	recursiveInPlaceEmptyRounds(
