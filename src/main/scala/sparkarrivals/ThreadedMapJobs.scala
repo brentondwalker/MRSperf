@@ -15,6 +15,7 @@ import org.apache.commons.cli.OptionBuilder;
 import org.apache.commons.cli.HelpFormatter;
 import org.apache.commons.cli.Options;
 import org.apache.commons.cli.ParseException;
+import org.apache.commons.cli.MissingOptionException;
 
 import org.apache.commons.math3.special.Gamma;
 import org.apache.commons.math3.distribution.WeibullDistribution;
@@ -36,7 +37,8 @@ object ThreadedMapJobs {
 		//cli_options.addOption("h", "help", false, "print help message");
 		cli_options.addOption("w", "numworkers", true, "number of workers/servers");
 		cli_options.addOption("t", "numtasks", true, "number of tasks per job");
-		cli_options.addOption("n", "numsamples", true, "number of samples to produce.  Multiply this by the sampling interval to get the number of jobs that will be run");
+		cli_options.addOption("n", "numsamples", true, "number of jobs to run");
+		cli_options.addOption("s", "sequential-jobs", false, "submit the jobs sequentially instead of from separate threads");
 
 		// I'm trying to re-use code here, but using OptionBuilder from commons-cli 1.2
 		// in scala is problematic because it has these static methods and the have to
@@ -57,7 +59,15 @@ object ThreadedMapJobs {
 		try {
 			options = parser.parse(cli_options, args);
 		} catch {
+		case e: MissingOptionException => {
+			System.err.println("\nERROR: Missing a required option!\n")
+			val formatter: HelpFormatter = new HelpFormatter();
+			formatter.printHelp(this.getClass.getSimpleName, cli_options);
+			//e.printStackTrace();
+			System.exit(0);
+		}
 		case e: ParseException => {
+			System.err.println("ERROR: ParseException")
 			val formatter: HelpFormatter = new HelpFormatter();
 			formatter.printHelp(this.getClass.getSimpleName, cli_options);
 			e.printStackTrace();
@@ -73,7 +83,7 @@ object ThreadedMapJobs {
    * return a function that generates samples.
    * Maybe I am getting carried away with the scala functional stuff.
    * 
-   * TODO: Weibull, Normal
+   * TODO: Normal?
    */
   def parseProcessArgs(args: Array[String]): () => Double = {
     if (args.length == 0) {
@@ -182,6 +192,7 @@ object ThreadedMapJobs {
     val totalJobs = if (options.hasOption("n")) options.getOptionValue("n").toInt else 0
 		val slicesPerJob = if (options.hasOption("t")) options.getOptionValue("t").toInt else 1
 		val numWorkers = if (options.hasOption("w")) options.getOptionValue("w").toInt else 1
+		val serialJobs = options.hasOption("s")
 		
 	  val conf = new SparkConf()
 	    .setAppName("ThreadedMapJobs")
@@ -207,13 +218,17 @@ object ThreadedMapJobs {
 		var jobsRun = 0
 		var doneSignal: CountDownLatch = new CountDownLatch(totalJobs)
 		val initialTime = java.lang.System.currentTimeMillis()
+		var lastArrivalTime = 0L
+		var totalInterarrivalTime = 0.0
 
 		while (jobsRun < totalJobs) {
 			println("")
+			
 			val t = new Thread(new Runnable {
 			  def run() {
 				  val jobId = jobsRun
 					val startTime = java.lang.System.currentTimeMillis();
+				  lastArrivalTime = startTime
 					println("+++ JOB "+jobId+" START: "+startTime)
 					
 					// we would like to pass the serviceProcess in to this method and let the workers
@@ -225,17 +240,32 @@ object ThreadedMapJobs {
 					val stopTime = java.lang.System.currentTimeMillis()
 					println("--- JOB "+jobId+" STOP: "+stopTime)
 					println("=== JOB "+jobId+" ELAPSED: "+(stopTime-startTime))
-					//println("=== JOB "+jobId+" TOTAL ELAPSED: "+(1.0*(stopTime-initialTime)/1000.0))
 					doneSignal.countDown()
 				}
 			});
 			jobsRun += 1;
 			t.start()
 			
-			val interarrivalTime = arrivalProcess()
+			if (serialJobs) {
+			  println("waiting done signal...")
+			  t.join();
+				println("got done signal!")
+			}
+			
+			val curTime = java.lang.System.currentTimeMillis()
+			val totalElapsedTime = (curTime- initialTime)/1000.0
+			//XXX working on this...
+			// need to track total elapsed time in the run, and total used inter-arrival times
+			val interarrivalTime = arrivalProcess();
 			println("*** inter-arrival time: "+interarrivalTime+" ***")
-			Thread sleep math.round(interarrivalTime * 1000)
-
+			totalInterarrivalTime += interarrivalTime
+			println("totalInterarrivalTime = "+totalInterarrivalTime+"\t totalElapsedTime = "+totalElapsedTime)
+			
+			if (totalElapsedTime < totalInterarrivalTime) {
+			  println("sleep "+(math.round((totalInterarrivalTime - totalElapsedTime) * 1000.0)))
+				Thread sleep math.round((totalInterarrivalTime - totalElapsedTime) * 1000.0)
+			}
+			
 		}
 		doneSignal.await()
 		println("*** FINISHED!! ***")
