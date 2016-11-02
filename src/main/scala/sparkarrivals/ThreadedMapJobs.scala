@@ -21,6 +21,7 @@ import org.apache.commons.math3.special.Gamma;
 import org.apache.commons.math3.distribution.WeibullDistribution;
 
 import scala.math.random
+import scala.collection.mutable.ListBuffer
 
 
 object ThreadedMapJobs {
@@ -220,7 +221,8 @@ object ThreadedMapJobs {
 		val initialTime = java.lang.System.currentTimeMillis()
 		var lastArrivalTime = 0L
 		var totalInterarrivalTime = 0.0
-
+		val threadList = ListBuffer[Thread]()
+		
 		while (jobsRun < totalJobs) {
 			println("")
 			
@@ -243,6 +245,7 @@ object ThreadedMapJobs {
 					doneSignal.countDown()
 				}
 			});
+			threadList += t;
 			jobsRun += 1;
 			t.start()
 			
@@ -271,9 +274,17 @@ object ThreadedMapJobs {
 			}
 			
 		}
+		
+		println("*** waiting for jobs to finish... ***")
 		doneSignal.await()
+		for (t <- threadList) {
+		  t.join()  // unnecessary?
+		}
+		
 		println("*** FINISHED!! ***")
-		spark.stop()
+		if (! spark.isStopped) {
+			spark.stop()
+		}
   }
   
 }

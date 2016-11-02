@@ -442,9 +442,17 @@ object InPlaceMultistageMap {
 			}
 			
 		}
+		
+		println("*** waiting for jobs to finish... ***")
 		doneSignal.await()
+		for (t <- threadList) {
+		  t.join()  // unnecessary?
+		}
+		
 		println("*** FINISHED!! ***")
-		spark.stop()
+		if (! spark.isStopped) {
+			spark.stop()
+		}
   }
   
 }
