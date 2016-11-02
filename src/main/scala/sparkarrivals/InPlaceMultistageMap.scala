@@ -22,6 +22,7 @@ import org.apache.commons.math3.special.Gamma;
 import org.apache.commons.math3.distribution.WeibullDistribution;
 
 import scala.math.random
+import scala.collection.mutable.ListBuffer
 
 
 
@@ -50,7 +51,8 @@ object InPlaceMultistageMap {
 		cli_options.addOption("n", "numsamples", true, "number of jobs to run");
 		cli_options.addOption("r", "rounds", true, "number of rounds of service each job needs");
 		cli_options.addOption("s", "sequential-jobs", false, "submit the jobs sequentially instead of from separate threads");
-
+		cli_options.addOption("c", "constructive", false, "build the multi-stage jobs in a functionally constructive way (default method is recursive)");
+		
 		// I'm trying to re-use code here, but using OptionBuilder from commons-cli 1.2
 		// in scala is problematic because it has these static methods and the have to
 		// be called on the class in scala.
@@ -149,6 +151,28 @@ object InPlaceMultistageMap {
     }
   }
   
+  
+  /**
+   * This is the code that the tasks execute.  It is just generating random numbers
+   * for a desired length of time.  The desired execution time is passed in,
+   * and this loop seems to hit it accurately down to the ms.
+   */
+  def doWork(jobLength: Double, jobId: Int, stageId: Int, taskId: Int): Int = {
+	  val startTime = java.lang.System.currentTimeMillis();
+	  val targetStopTime = startTime + 1000*jobLength;
+	  println("---------\n    +++ TASK "+jobId+"."+stageId+"."+taskId+" START: "+startTime)
+	  while (java.lang.System.currentTimeMillis() < targetStopTime) {
+		  val x = random * 2 - 1;
+		  val y = random * 2 - 1;
+	  }
+
+	  val stopTime = java.lang.System.currentTimeMillis();
+	  println("    --- TASK "+jobId+"."+stageId+"."+taskId+" STOP: "+stopTime)
+	  println("    === TASK "+jobId+"."+stageId+"."+taskId+" ELAPSED: "+(stopTime-startTime))
+	  taskId
+  }
+  
+  
   /**
    * Run s slices on the Spark cluster, with service times drawn
    * from the given serviceProcess.
@@ -173,163 +197,55 @@ object InPlaceMultistageMap {
       val taskId = i._1
       val stageId = 0
       val jobLength = serviceTimes(stageId)(taskId-1)
-      //println("stage1: serviceTimes("+(taskId-1)+") = "+jobLength)
-      val startTime = java.lang.System.currentTimeMillis()
-      val targetStopTime = startTime + 1000*jobLength
-			println("---------\n    +++ TASK "+jobId+"."+stageId+"."+taskId+" START: "+startTime)
-			while (java.lang.System.currentTimeMillis() < targetStopTime) {
-				val x = random * 2 - 1
-				val y = random * 2 - 1
-			}
-
-      val stopTime = java.lang.System.currentTimeMillis();
-      println("    --- TASK "+jobId+"."+stageId+"."+taskId+" STOP: "+stopTime)
-      println("    === TASK "+jobId+"."+stageId+"."+taskId+" ELAPSED: "+(stopTime-startTime))
-      taskId
+      doWork(jobLength, jobId, stageId, taskId)
     }.groupBy { x => x }
     .map { i =>
       val taskId = i._1
       val stageId = 1
       val jobLength = serviceTimes(stageId)(taskId-1)
-      //println("stage2: serviceTimes("+(taskId-1)+") = "+jobLength)
-      val startTime = java.lang.System.currentTimeMillis()
-      val targetStopTime = startTime + 1000*jobLength
-			println("---------\n    +++ TASK "+jobId+"."+stageId+"."+taskId+" START: "+startTime)
-			while (java.lang.System.currentTimeMillis() < targetStopTime) {
-				val x = random * 2 - 1
-				val y = random * 2 - 1
-			}
-
-      val stopTime = java.lang.System.currentTimeMillis();
-      println("    --- TASK "+jobId+"."+stageId+"."+taskId+" STOP: "+stopTime)
-      println("    === TASK "+jobId+"."+stageId+"."+taskId+" ELAPSED: "+(stopTime-startTime))
-      taskId
+      doWork(jobLength, jobId, stageId, taskId)
     }.groupBy { x => x }
     .map { i =>
       val taskId = i._1
       val stageId = 2
       val jobLength = serviceTimes(stageId)(taskId-1)
-      //println("stage2: serviceTimes("+(taskId-1)+") = "+jobLength)
-      val startTime = java.lang.System.currentTimeMillis()
-      val targetStopTime = startTime + 1000*jobLength
-			println("---------\n    +++ TASK "+jobId+"."+stageId+"."+taskId+" START: "+startTime)
-			while (java.lang.System.currentTimeMillis() < targetStopTime) {
-				val x = random * 2 - 1
-				val y = random * 2 - 1
-			}
-
-      val stopTime = java.lang.System.currentTimeMillis();
-      println("    --- TASK "+jobId+"."+stageId+"."+taskId+" STOP: "+stopTime)
-      println("    === TASK "+jobId+"."+stageId+"."+taskId+" ELAPSED: "+(stopTime-startTime))
-      taskId
+      doWork(jobLength, jobId, stageId, taskId)
     }.groupBy { x => x }
     .map { i =>
       val taskId = i._1
       val stageId = 3
       val jobLength = serviceTimes(stageId)(taskId-1)
-      //println("stage2: serviceTimes("+(taskId-1)+") = "+jobLength)
-      val startTime = java.lang.System.currentTimeMillis()
-      val targetStopTime = startTime + 1000*jobLength
-			println("---------\n    +++ TASK "+jobId+"."+stageId+"."+taskId+" START: "+startTime)
-			while (java.lang.System.currentTimeMillis() < targetStopTime) {
-				val x = random * 2 - 1
-				val y = random * 2 - 1
-			}
-
-      val stopTime = java.lang.System.currentTimeMillis();
-      println("    --- TASK "+jobId+"."+stageId+"."+taskId+" STOP: "+stopTime)
-      println("    === TASK "+jobId+"."+stageId+"."+taskId+" ELAPSED: "+(stopTime-startTime))
-      taskId
+      doWork(jobLength, jobId, stageId, taskId)
     }.groupBy { x => x }
     .map { i =>
       val taskId = i._1
       val stageId = 4
       val jobLength = serviceTimes(stageId)(taskId-1)
-      //println("stage2: serviceTimes("+(taskId-1)+") = "+jobLength)
-      val startTime = java.lang.System.currentTimeMillis()
-      val targetStopTime = startTime + 1000*jobLength
-			println("---------\n    +++ TASK "+jobId+"."+stageId+"."+taskId+" START: "+startTime)
-			while (java.lang.System.currentTimeMillis() < targetStopTime) {
-				val x = random * 2 - 1
-				val y = random * 2 - 1
-			}
-
-      val stopTime = java.lang.System.currentTimeMillis();
-      println("    --- TASK "+jobId+"."+stageId+"."+taskId+" STOP: "+stopTime)
-      println("    === TASK "+jobId+"."+stageId+"."+taskId+" ELAPSED: "+(stopTime-startTime))
-      taskId
+      doWork(jobLength, jobId, stageId, taskId)
     }.groupBy { x => x }
     .map { i =>
       val taskId = i._1
       val stageId = 5
       val jobLength = serviceTimes(stageId)(taskId-1)
-      //println("stage2: serviceTimes("+(taskId-1)+") = "+jobLength)
-      val startTime = java.lang.System.currentTimeMillis()
-      val targetStopTime = startTime + 1000*jobLength
-			println("---------\n    +++ TASK "+jobId+"."+stageId+"."+taskId+" START: "+startTime)
-			while (java.lang.System.currentTimeMillis() < targetStopTime) {
-				val x = random * 2 - 1
-				val y = random * 2 - 1
-			}
-
-      val stopTime = java.lang.System.currentTimeMillis();
-      println("    --- TASK "+jobId+"."+stageId+"."+taskId+" STOP: "+stopTime)
-      println("    === TASK "+jobId+"."+stageId+"."+taskId+" ELAPSED: "+(stopTime-startTime))
-      taskId
+      doWork(jobLength, jobId, stageId, taskId)
     }.groupBy { x => x }
     .map { i =>
       val taskId = i._1
       val stageId = 6
       val jobLength = serviceTimes(stageId)(taskId-1)
-      //println("stage2: serviceTimes("+(taskId-1)+") = "+jobLength)
-      val startTime = java.lang.System.currentTimeMillis()
-      val targetStopTime = startTime + 1000*jobLength
-			println("---------\n    +++ TASK "+jobId+"."+stageId+"."+taskId+" START: "+startTime)
-			while (java.lang.System.currentTimeMillis() < targetStopTime) {
-				val x = random * 2 - 1
-				val y = random * 2 - 1
-			}
-
-      val stopTime = java.lang.System.currentTimeMillis();
-      println("    --- TASK "+jobId+"."+stageId+"."+taskId+" STOP: "+stopTime)
-      println("    === TASK "+jobId+"."+stageId+"."+taskId+" ELAPSED: "+(stopTime-startTime))
-      taskId
+      doWork(jobLength, jobId, stageId, taskId)
     }.groupBy { x => x }
     .map { i =>
       val taskId = i._1
       val stageId = 7
       val jobLength = serviceTimes(stageId)(taskId-1)
-      //println("stage2: serviceTimes("+(taskId-1)+") = "+jobLength)
-      val startTime = java.lang.System.currentTimeMillis()
-      val targetStopTime = startTime + 1000*jobLength
-			println("---------\n    +++ TASK "+jobId+"."+stageId+"."+taskId+" START: "+startTime)
-			while (java.lang.System.currentTimeMillis() < targetStopTime) {
-				val x = random * 2 - 1
-				val y = random * 2 - 1
-			}
-
-      val stopTime = java.lang.System.currentTimeMillis();
-      println("    --- TASK "+jobId+"."+stageId+"."+taskId+" STOP: "+stopTime)
-      println("    === TASK "+jobId+"."+stageId+"."+taskId+" ELAPSED: "+(stopTime-startTime))
-      taskId
+      doWork(jobLength, jobId, stageId, taskId)
     }.groupBy { x => x }
     .map { i =>
       val taskId = i._1
       val stageId = 8
       val jobLength = serviceTimes(stageId)(taskId-1)
-      //println("stage2: serviceTimes("+(taskId-1)+") = "+jobLength)
-      val startTime = java.lang.System.currentTimeMillis()
-      val targetStopTime = startTime + 1000*jobLength
-			println("---------\n    +++ TASK "+jobId+"."+stageId+"."+taskId+" START: "+startTime)
-			while (java.lang.System.currentTimeMillis() < targetStopTime) {
-				val x = random * 2 - 1
-				val y = random * 2 - 1
-			}
-
-      val stopTime = java.lang.System.currentTimeMillis();
-      println("    --- TASK "+jobId+"."+stageId+"."+taskId+" STOP: "+stopTime)
-      println("    === TASK "+jobId+"."+stageId+"."+taskId+" ELAPSED: "+(stopTime-startTime))
-      taskId
+      doWork(jobLength, jobId, stageId, taskId)
     }.count()
   }
   
@@ -361,19 +277,7 @@ object InPlaceMultistageMap {
     			  val taskId = i._1
     			  val stageId = remaining_rounds
     			  val jobLength = serviceTimes.last(taskId-1)
-    			  println("stage1: serviceTimes("+(taskId-1)+") = "+jobLength)
-    			  val startTime = java.lang.System.currentTimeMillis()
-    			  val targetStopTime = startTime + 1000*jobLength
-    			  println("---------\n    +++ TASK "+jobId+"."+stageId+"."+taskId+" START: "+startTime)
-    			  while (java.lang.System.currentTimeMillis() < targetStopTime) {
-    				  val x = random * 2 - 1
-    						  val y = random * 2 - 1
-    			  }
-
-    			  val stopTime = java.lang.System.currentTimeMillis();
-    			  println("    --- TASK "+jobId+"."+stageId+"."+taskId+" STOP: "+stopTime)
-    			  println("    === TASK "+jobId+"."+stageId+"."+taskId+" ELAPSED: "+(stopTime-startTime))
-    			  taskId
+    			  doWork(jobLength, jobId, stageId, taskId)
     			}.groupBy { x => x },
     			serviceTimes.init,
     			jobId,
@@ -400,46 +304,37 @@ object InPlaceMultistageMap {
     .count()
   }
   
-  /*
-  def appendEmptyStage(f: RDD[(Int, Iterable[Int])] => RDD[(Int, Iterable[Int])], serviceTimes: List[Double], jobId: Int): (RDD[(Int, Iterable[Int])] => RDD[(Int, Iterable[Int])]) {
-	  ( (rdd: RDD[(Int, Iterable[Int])]) => f(rdd).map { i =>
-      val taskId = i._1
+  
+  /**
+   * Takes an n-stage function mapping (RDD[(Int, Iterable[Int])] => RDD[(Int, Iterable[Int])]),
+   * and returns an (n+1)-stage function.
+   */
+  def appendEmptyStage(f: (RDD[(Int, Iterable[Int])] => RDD[(Int, Iterable[Int])]), serviceTimes: List[Double], jobId: Int): RDD[(Int, Iterable[Int])] => RDD[(Int, Iterable[Int])] = {
+		  rdd: RDD[(Int, Iterable[Int])] => f(rdd).map { i =>
+		  val taskId = i._1
       val jobLength = serviceTimes(taskId-1)
-      println("stage1: serviceTimes("+(taskId-1)+") = "+jobLength)
-      val startTime = java.lang.System.currentTimeMillis()
-      val targetStopTime = startTime + 1000*jobLength
-			println("    +++ TASK "+jobId+"."+taskId+" START: "+startTime)
-			while (java.lang.System.currentTimeMillis() < targetStopTime) {
-				val x = random * 2 - 1
-				val y = random * 2 - 1
-			}
-
-      val stopTime = java.lang.System.currentTimeMillis()
-      println("    --- TASK "+jobId+"."+taskId+" STOP: "+stopTime)
-      println("    === TASK "+jobId+"."+taskId+" ELAPSED: "+(stopTime-startTime))
-      taskId
-    }.groupBy { x => x } )
+      doWork(jobLength, jobId, 0, taskId)
+    }.groupBy { x => x }
   }
   
   
-  def runInPlaceRounds(spark:SparkContext, slices: Int, serviceProcesss: () => Double, numRounds: Int, jobId: Int): Long = {
-    var r = 0
+  /**
+   * This is an alternate version of the program that iteratively builds a function
+   * with the desired number of stages.  The result should behave the same as the recursive
+   * version.
+   */
+  def runInPlaceRoundsConstructive(spark:SparkContext, slices: Int, serviceProcesss: () => Double, numRounds: Int, jobId: Int): Long = {
     
-    //val rdd = spark.parallelize(1 to slices, slices).groupBy { x => x }
     var f: RDD[(Int, Iterable[Int])] => RDD[(Int, Iterable[Int])] = { x => x }
     
+    var r = 0
     for ( r <- 1 to numRounds ) {
     	val serviceTimes = List.tabulate(slices)(n => serviceProcesss())
       f = appendEmptyStage(f, serviceTimes, jobId)
-      
     }
     
-    val rdd: RDD[Int] = spark.parallelize(1 to slices, slices);
-    rdd.groupBy{ x: Int => x: Int }
-    //.f
-    .count()
+    f(spark.parallelize(1 to slices, slices).groupBy{ x: Int => x: Int }).count()
   }
-  * */
   
 
   
@@ -462,6 +357,7 @@ object InPlaceMultistageMap {
 		val numWorkers = if (options.hasOption("w")) options.getOptionValue("w").toInt else 1
 		val serialJobs = options.hasOption("s")
 		val numRounds = if (options.hasOption("r")) options.getOptionValue("r").toInt else 1
+		val constructFunction = options.hasOption("c")
 		
 	  val conf = new SparkConf()
 	    .setAppName("InPlaceMultistageMap")
@@ -489,7 +385,8 @@ object InPlaceMultistageMap {
 		val initialTime = java.lang.System.currentTimeMillis()
 		var lastArrivalTime = 0L
 		var totalInterarrivalTime = 0.0
-
+		val threadList = ListBuffer[Thread]()
+		
 		while (jobsRun < totalJobs) {
 			println("")
 			
@@ -505,31 +402,35 @@ object InPlaceMultistageMap {
 					// from identical RNGs, and get the same result.  So we generate the service times here.
 					// These are actually generated in different threads, but it's the same process, same JVM.
 					//runEmptySlices(spark, slicesPerJob, List.tabulate(10)(n => List.tabulate(slicesPerJob)( n => serviceProcess())), jobId)
-					runInPlaceRounds(spark, slicesPerJob, serviceProcess, numRounds, jobId)
 
+				  if (constructFunction) {
+				    runInPlaceRoundsConstructive(spark, slicesPerJob, serviceProcess, numRounds, jobId)
+				  } else {
+					  runInPlaceRounds(spark, slicesPerJob, serviceProcess, numRounds, jobId)
+				  }
+				  
 					val stopTime = java.lang.System.currentTimeMillis()
 					println("--- JOB "+jobId+" STOP: "+stopTime)
 					println("=== JOB "+jobId+" ELAPSED: "+(stopTime-startTime))
 					doneSignal.countDown()
 				}
 			});
+			threadList += t;
 			jobsRun += 1;
 			t.start()
 			
-			//XXX The way I do this does start the jobs in a Slpit-Merge fashion, but we are effectively 
+			//XXX The way I do this does start the jobs in a Split-Merge fashion, but we are effectively 
 			//    spoofing the job arrivals.  The jobs aren't actually queued to the Spark system until
 			//    right before they start executing.  Therefore, to do any sort of analysis we need to
 			//    record the job arrivals separately from the spark eventlog.
+			//
+			// if requested, run jobs in split-merge style; job n can't start until job (n-1) is departed.
 			if (serialJobs) {
-			  println("waiting done signal...")
 			  t.join();
-				println("got done signal!")
 			}
 			
 			val curTime = java.lang.System.currentTimeMillis()
 			val totalElapsedTime = (curTime- initialTime)/1000.0
-			//XXX working on this...
-			// need to track total elapsed time in the run, and total used inter-arrival times
 			val interarrivalTime = arrivalProcess();
 			println("*** inter-arrival time: "+interarrivalTime+" ***")
 			totalInterarrivalTime += interarrivalTime
