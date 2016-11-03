@@ -23,6 +23,7 @@ import org.apache.commons.math3.distribution.WeibullDistribution;
 
 import scala.math.random
 import scala.collection.mutable.ListBuffer
+import java.io._
 
 
 
@@ -49,7 +50,9 @@ object InPlaceMultistageMap {
 		cli_options.addOption("w", "numworkers", true, "number of workers/servers");
 		cli_options.addOption("t", "numtasks", true, "number of tasks per job");
 		cli_options.addOption("n", "numsamples", true, "number of jobs to run");
+		cli_options.addOption("o", "outfile-base", true, "base name (with path) of the output files");
 		cli_options.addOption("r", "rounds", true, "number of rounds of service each job needs");
+		cli_options.addOption("x", "correlated-rounds", true, "the service times of the tasks are the same across rounds");
 		cli_options.addOption("s", "sequential-jobs", false, "submit the jobs sequentially instead of from separate threads");
 		cli_options.addOption("c", "constructive", false, "build the multi-stage jobs in a functionally constructive way (default method is recursive)");
 		
@@ -89,8 +92,7 @@ object InPlaceMultistageMap {
 		}
 		options
   }
-  
-  
+
   /**
    * Take the command line spec for a random intertime process and 
    * return a function that generates samples.
@@ -152,12 +154,18 @@ object InPlaceMultistageMap {
   }
   
   
+  // Data types for recording task information in an RDD that can be collected
+  // back at the driver and saved.
+  type TaskID = Tuple3[Int,Int,Int]
+  type TaskData = Tuple3[TaskID,Long,Long]
+
+  
   /**
    * This is the code that the tasks execute.  It is just generating random numbers
    * for a desired length of time.  The desired execution time is passed in,
    * and this loop seems to hit it accurately down to the ms.
    */
-  def doWork(jobLength: Double, jobId: Int, stageId: Int, taskId: Int): Int = {
+  def doWork(jobLength: Double, jobId: Int, stageId: Int, taskId: Int): TaskData = {
 	  val startTime = java.lang.System.currentTimeMillis();
 	  val targetStopTime = startTime + 1000*jobLength;
 	  println("---------\n    +++ TASK "+jobId+"."+stageId+"."+taskId+" START: "+startTime)
@@ -169,7 +177,7 @@ object InPlaceMultistageMap {
 	  val stopTime = java.lang.System.currentTimeMillis();
 	  println("    --- TASK "+jobId+"."+stageId+"."+taskId+" STOP: "+stopTime)
 	  println("    === TASK "+jobId+"."+stageId+"."+taskId+" ELAPSED: "+(stopTime-startTime))
-	  taskId
+	  ((jobId, stageId, taskId), startTime, stopTime)
   }
   
   
@@ -197,55 +205,55 @@ object InPlaceMultistageMap {
       val taskId = i._1
       val stageId = 0
       val jobLength = serviceTimes(stageId)(taskId-1)
-      doWork(jobLength, jobId, stageId, taskId)
+      doWork(jobLength, jobId, stageId, taskId)._1._3
     }.groupBy { x => x }
     .map { i =>
       val taskId = i._1
       val stageId = 1
       val jobLength = serviceTimes(stageId)(taskId-1)
-      doWork(jobLength, jobId, stageId, taskId)
+      doWork(jobLength, jobId, stageId, taskId)._1._3
     }.groupBy { x => x }
     .map { i =>
       val taskId = i._1
       val stageId = 2
       val jobLength = serviceTimes(stageId)(taskId-1)
-      doWork(jobLength, jobId, stageId, taskId)
+      doWork(jobLength, jobId, stageId, taskId)._1._3
     }.groupBy { x => x }
     .map { i =>
       val taskId = i._1
       val stageId = 3
       val jobLength = serviceTimes(stageId)(taskId-1)
-      doWork(jobLength, jobId, stageId, taskId)
+      doWork(jobLength, jobId, stageId, taskId)._1._3
     }.groupBy { x => x }
     .map { i =>
       val taskId = i._1
       val stageId = 4
       val jobLength = serviceTimes(stageId)(taskId-1)
-      doWork(jobLength, jobId, stageId, taskId)
+      doWork(jobLength, jobId, stageId, taskId)._1._3
     }.groupBy { x => x }
     .map { i =>
       val taskId = i._1
       val stageId = 5
       val jobLength = serviceTimes(stageId)(taskId-1)
-      doWork(jobLength, jobId, stageId, taskId)
+      doWork(jobLength, jobId, stageId, taskId)._1._3
     }.groupBy { x => x }
     .map { i =>
       val taskId = i._1
       val stageId = 6
       val jobLength = serviceTimes(stageId)(taskId-1)
-      doWork(jobLength, jobId, stageId, taskId)
+      doWork(jobLength, jobId, stageId, taskId)._1._3
     }.groupBy { x => x }
     .map { i =>
       val taskId = i._1
       val stageId = 7
       val jobLength = serviceTimes(stageId)(taskId-1)
-      doWork(jobLength, jobId, stageId, taskId)
+      doWork(jobLength, jobId, stageId, taskId)._1._3
     }.groupBy { x => x }
     .map { i =>
       val taskId = i._1
       val stageId = 8
       val jobLength = serviceTimes(stageId)(taskId-1)
-      doWork(jobLength, jobId, stageId, taskId)
+      doWork(jobLength, jobId, stageId, taskId)._1._3
     }.count()
   }
   
@@ -268,7 +276,7 @@ object InPlaceMultistageMap {
    * after.  Both extra jobs have very small executor time and are mainly overhead processing.
    * 
    */
-  def recursiveInPlaceEmptyRounds(rdd: RDD[(Int, Iterable[Int])], serviceTimes: List[List[Double]], jobId: Int, remaining_rounds: Int): RDD[(Int, Iterable[Int])] = {
+  def recursiveInPlaceEmptyRounds(rdd: RDD[(Int, Iterable[ListBuffer[TaskData]])], serviceTimes: List[List[Double]], jobId: Int, remaining_rounds: Int): RDD[(Int, Iterable[ListBuffer[TaskData]])] = {
     if (remaining_rounds == 0) {
       rdd
     } else {
@@ -277,8 +285,10 @@ object InPlaceMultistageMap {
     			  val taskId = i._1
     			  val stageId = remaining_rounds
     			  val jobLength = serviceTimes.last(taskId-1)
-    			  doWork(jobLength, jobId, stageId, taskId)
-    			}.groupBy { x => x },
+    			  val prevData = i._2.last
+    			  prevData.append(doWork(jobLength, jobId, stageId, taskId))
+    			  prevData
+    			}.groupBy { x => x.last._1._3 },
     			serviceTimes.init,
     			jobId,
     			remaining_rounds - 1)
@@ -293,15 +303,20 @@ object InPlaceMultistageMap {
    * This method also calls count() on the end result of the recursion, which what triggers the
    * actual execution of the whole thing.
    */
-  def runInPlaceRounds(spark:SparkContext, numSlices: Int, serviceProcess: () => Double, numRounds: Int, jobId: Int): Long = {
+  def runInPlaceRoundsRecursive(spark:SparkContext, numSlices: Int, serviceProcess: () => Double, numRounds: Int, jobId: Int, ofile: BufferedWriter): ListBuffer[TaskData] = {
     val serviceTimes = List.tabulate(numRounds)(n => List.tabulate(numSlices)( n => serviceProcess() ) )
     
     recursiveInPlaceEmptyRounds(
-        spark.parallelize(1 to numSlices, numSlices).groupBy{ x: Int => x: Int },
+        spark.parallelize(1 to numSlices, numSlices)
+          .map( x => ListBuffer[TaskData]( ((jobId,-1,x),0,0)) )
+          .groupBy{ x => x.last._1._3 },
         serviceTimes,
         jobId,
         numRounds)
-    .count()
+    .map( x => x._2.last )
+    .collect
+    .last
+    //.count()
   }
   
   
@@ -309,12 +324,15 @@ object InPlaceMultistageMap {
    * Takes an n-stage function mapping (RDD[(Int, Iterable[Int])] => RDD[(Int, Iterable[Int])]),
    * and returns an (n+1)-stage function.
    */
-  def appendEmptyStage(f: (RDD[(Int, Iterable[Int])] => RDD[(Int, Iterable[Int])]), serviceTimes: List[Double], jobId: Int): RDD[(Int, Iterable[Int])] => RDD[(Int, Iterable[Int])] = {
-		  rdd: RDD[(Int, Iterable[Int])] => f(rdd).map { i =>
+  def appendEmptyStage(f: (RDD[(Int, Iterable[ListBuffer[TaskData]])] => RDD[(Int, Iterable[ListBuffer[TaskData]])]), serviceTimes: List[Double], jobId: Int, stageId: Int): RDD[(Int, Iterable[ListBuffer[TaskData]])] => RDD[(Int, Iterable[ListBuffer[TaskData]])] = {
+		rdd: RDD[(Int, Iterable[ListBuffer[TaskData]])] => f(rdd).map { i =>
 		  val taskId = i._1
       val jobLength = serviceTimes(taskId-1)
-      doWork(jobLength, jobId, 0, taskId)
-    }.groupBy { x => x }
+      val prevData = i._2.last
+      prevData.append(doWork(jobLength, jobId, stageId, taskId))
+      prevData
+		}.groupBy { x => x.last._1._3 }
+
   }
   
   
@@ -323,17 +341,24 @@ object InPlaceMultistageMap {
    * with the desired number of stages.  The result should behave the same as the recursive
    * version.
    */
-  def runInPlaceRoundsConstructive(spark:SparkContext, slices: Int, serviceProcesss: () => Double, numRounds: Int, jobId: Int): Long = {
+  def runInPlaceRoundsConstructive(spark:SparkContext, slices: Int, serviceProcesss: () => Double, numRounds: Int, jobId: Int): ListBuffer[TaskData] = {
     
-    var f: RDD[(Int, Iterable[Int])] => RDD[(Int, Iterable[Int])] = { x => x }
+    var f: RDD[(Int, Iterable[ListBuffer[TaskData]])] => RDD[(Int, Iterable[ListBuffer[TaskData]])] = { x => x }
     
     var r = 0
-    for ( r <- 1 to numRounds ) {
+    for ( stageId <- 1 to numRounds ) {
     	val serviceTimes = List.tabulate(slices)(n => serviceProcesss())
-      f = appendEmptyStage(f, serviceTimes, jobId)
+      f = appendEmptyStage(f, serviceTimes, jobId, stageId)
     }
     
-    f(spark.parallelize(1 to slices, slices).groupBy{ x: Int => x: Int }).count()
+    f(spark.parallelize(1 to slices, slices)
+        .map( x => ListBuffer[TaskData]( ((jobId,-1,x),0,0)) )
+        .groupBy{ x => x.last._1._3 }
+    )
+    .map( x => x._2.last )
+    .collect
+    .last
+    //.count()
   }
   
 
@@ -358,7 +383,16 @@ object InPlaceMultistageMap {
 		val serialJobs = options.hasOption("s")
 		val numRounds = if (options.hasOption("r")) options.getOptionValue("r").toInt else 1
 		val constructFunction = options.hasOption("c")
-		
+		val correlatedRounds = options.hasOption("x")
+		val outfileBase = if (options.hasOption("o")) options.getOptionValue("o") else "";
+    
+    // if we are logging data (besides spark's eventlog)
+    var ofile: BufferedWriter = null;
+		if (options.hasOption("o")) {
+			val file = new File(outfileBase+".dat");
+			ofile = new BufferedWriter(new FileWriter(file))
+		}
+    
 	  val conf = new SparkConf()
 	    .setAppName("InPlaceMultistageMap")
 	    .set("spark.cores.max", numWorkers.toString())
@@ -405,8 +439,23 @@ object InPlaceMultistageMap {
 
 				  if (constructFunction) {
 				    runInPlaceRoundsConstructive(spark, slicesPerJob, serviceProcess, numRounds, jobId)
+				    .foreach {
+				      x => {
+				        println(x)
+				        if (ofile != null)
+				        	ofile.write(Array(x._1._1, x._1._2, x._1._3, x._2, x._3).mkString("\t")+"\n")
+				      }
+				    }
+				    
 				  } else {
-					  runInPlaceRounds(spark, slicesPerJob, serviceProcess, numRounds, jobId)
+					  runInPlaceRoundsRecursive(spark, slicesPerJob, serviceProcess, numRounds, jobId, ofile)
+				    .foreach{
+				      x => {
+				        println(x)
+				        if (ofile != null)
+				        	ofile.write(Array(x._1._1, x._1._2, x._1._3, x._2, x._3).mkString("\t")+"\n")
+				      }
+				    }
 				  }
 				  
 					val stopTime = java.lang.System.currentTimeMillis()
@@ -442,7 +491,7 @@ object InPlaceMultistageMap {
 			}
 			
 		}
-		
+
 		println("*** waiting for jobs to finish... ***")
 		doneSignal.await()
 		for (t <- threadList) {
@@ -452,6 +501,10 @@ object InPlaceMultistageMap {
 		println("*** FINISHED!! ***")
 		if (! spark.isStopped) {
 			spark.stop()
+		}
+		
+		if (ofile != null) {
+		  ofile.close()
 		}
   }
   
