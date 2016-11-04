@@ -24,7 +24,9 @@ import org.apache.commons.math3.distribution.WeibullDistribution;
 import scala.math.random
 import scala.collection.mutable.ListBuffer
 import java.io._
-
+import java.util.concurrent.atomic.AtomicInteger
+import scala.math.Ordering
+import java.util.concurrent.PriorityBlockingQueue
 
 
 /**
@@ -158,7 +160,15 @@ object InPlaceMultistageMap {
   // back at the driver and saved.
   type TaskID = Tuple3[Int,Int,Int]
   type TaskData = Tuple3[TaskID,Long,Long]
-
+  type JobData = Array[ListBuffer[TaskData]]
+  
+  // the jobs will return an Array[ListBuffer[TaskData]] and we need a way to
+  // keep these things sorted by jobId
+  val jobDataOrdering = new Ordering[JobData] {
+    def compare(x:JobData,y:JobData): Int = {
+      x(0).last._1._1 compare y(0).last._1._1
+    }
+  }
   
   /**
    * This is the code that the tasks execute.  It is just generating random numbers
@@ -303,7 +313,7 @@ object InPlaceMultistageMap {
    * This method also calls count() on the end result of the recursion, which what triggers the
    * actual execution of the whole thing.
    */
-  def runInPlaceRoundsRecursive(spark:SparkContext, numSlices: Int, serviceProcess: () => Double, numRounds: Int, jobId: Int, ofile: BufferedWriter): ListBuffer[TaskData] = {
+  def runInPlaceRoundsRecursive(spark:SparkContext, numSlices: Int, serviceProcess: () => Double, numRounds: Int, jobId: Int): Array[ListBuffer[TaskData]] = {
     val serviceTimes = List.tabulate(numRounds)(n => List.tabulate(numSlices)( n => serviceProcess() ) )
     
     recursiveInPlaceEmptyRounds(
@@ -315,7 +325,7 @@ object InPlaceMultistageMap {
         numRounds)
     .map( x => x._2.last )
     .collect
-    .last
+    //.last
     //.count()
   }
   
@@ -325,7 +335,7 @@ object InPlaceMultistageMap {
    * and returns an (n+1)-stage function.
    */
   def appendEmptyStage(f: (RDD[(Int, Iterable[ListBuffer[TaskData]])] => RDD[(Int, Iterable[ListBuffer[TaskData]])]), serviceTimes: List[Double], jobId: Int, stageId: Int): RDD[(Int, Iterable[ListBuffer[TaskData]])] => RDD[(Int, Iterable[ListBuffer[TaskData]])] = {
-		rdd: RDD[(Int, Iterable[ListBuffer[TaskData]])] => f(rdd).map { i =>
+    rdd: RDD[(Int, Iterable[ListBuffer[TaskData]])] => f(rdd).map { i =>
 		  val taskId = i._1
       val jobLength = serviceTimes(taskId-1)
       val prevData = i._2.last
@@ -341,7 +351,7 @@ object InPlaceMultistageMap {
    * with the desired number of stages.  The result should behave the same as the recursive
    * version.
    */
-  def runInPlaceRoundsConstructive(spark:SparkContext, slices: Int, serviceProcesss: () => Double, numRounds: Int, jobId: Int): ListBuffer[TaskData] = {
+  def runInPlaceRoundsConstructive(spark:SparkContext, slices: Int, serviceProcesss: () => Double, numRounds: Int, jobId: Int): Array[ListBuffer[TaskData]] = {
     
     var f: RDD[(Int, Iterable[ListBuffer[TaskData]])] => RDD[(Int, Iterable[ListBuffer[TaskData]])] = { x => x }
     
@@ -357,11 +367,45 @@ object InPlaceMultistageMap {
     )
     .map( x => x._2.last )
     .collect
-    .last
     //.count()
   }
   
+  
+  // the tasks are re-numbered from 0 to k in each job and stage.  In the output file
+  // we want a global counter that we can plot against
+  var globalTaskCounter: Int = 0
 
+  /**
+   * Take the result of running a multistage job and print out the data with the
+   * sequence of events for each task on the same line.
+   */
+  def writeMultistageJobData(d:Array[ListBuffer[TaskData]], jobArrivalTime:Double, jobSubmissionTime:Long, jobDepartTime: Long, experimentStartTime:Long, ofile:BufferedWriter) {
+    if (ofile != null) {
+    	d.sortBy { x => x.last._1._3 }
+    	.foreach { x => {
+    		val fields:ListBuffer[Long] = ListBuffer[Long]();
+    	  fields.append(globalTaskCounter)
+    	  fields.append(x.last._1._1) // jobId
+    	  fields.append(x.last._1._3) // taskId
+    	  fields.append(jobArrivalTime.toLong)
+    	  fields.append(jobSubmissionTime - experimentStartTime)
+    	  fields.append(jobDepartTime - experimentStartTime)    	  
+    	  x.sortBy { y => y._2 }
+    	  .foreach { y => {
+    		  if (y._1._2 > 0) {
+    			  fields.append(y._1._2) // stageId
+    			  fields.append(y._2 - experimentStartTime, y._3 - experimentStartTime)  // start/stop times
+    		  }
+    	  }
+    	  }
+    	  ofile.write(fields.mkString("\t")+"\n")
+    	  globalTaskCounter += 1
+    	}
+    	}
+    }
+  }
+  
+  
   
   /**
    * Main method
@@ -414,21 +458,44 @@ object InPlaceMultistageMap {
       System.exit(1)
     }
     
+	  // we use this to assign jobIDs in separate threads, so use something thread-safe
+		val jobIdCounter = new AtomicInteger(0)
+		
+		// we use this to track the number of jobs started outside the job-runner threads
 		var jobsRun = 0
-		var doneSignal: CountDownLatch = new CountDownLatch(totalJobs)
+		
+		// we want to print out the job data in order, so we use this to remember which
+		// job should print out next
+		var jobDepartIndex = 0
+				
+		// Our jobs may finish out of order.  We use this to hold jobs that
+		// have departed before their predecessors so we can print out results in order
+		val departedJobsBuffer = new PriorityBlockingQueue[JobData](100, jobDataOrdering)
+		
+		// how we wait for all jobs to finish before exiting
+		// this may be unnecessary now that I keep a list of the threads and join() at the end
+		// if nothing else this is a scala thing, and join() is using java
+		val doneSignal: CountDownLatch = new CountDownLatch(totalJobs)
+		
 		val initialTime = java.lang.System.currentTimeMillis()
 		var lastArrivalTime = 0L
 		var totalInterarrivalTime = 0.0
+		val jobArrivalTimes = new Array[Double](totalJobs)
+		jobArrivalTimes(0) = 0.0
+		val jobStartTimes = new Array[Long](totalJobs)
+		val jobDepartTimes = new Array[Long](totalJobs)
 		val threadList = ListBuffer[Thread]()
+		val experimentStartTime: Long = java.lang.System.currentTimeMillis()
 		
-		while (jobsRun < totalJobs) {
+		while (jobsRun.get < totalJobs) {
 			println("")
 			
 			val t = new Thread(new Runnable {
 			  def run() {
-				  val jobId = jobsRun
+				  val jobId = jobIdCounter.getAndIncrement
 					val startTime = java.lang.System.currentTimeMillis();
-				  lastArrivalTime = startTime
+				  jobStartTimes(jobId) = startTime;
+				  lastArrivalTime = startTime;
 					println("+++ JOB "+jobId+" START: "+startTime)
 					
 					// we would like to pass the serviceProcess in to this method and let the workers
@@ -438,36 +505,39 @@ object InPlaceMultistageMap {
 					//runEmptySlices(spark, slicesPerJob, List.tabulate(10)(n => List.tabulate(slicesPerJob)( n => serviceProcess())), jobId)
 
 				  if (constructFunction) {
-				    runInPlaceRoundsConstructive(spark, slicesPerJob, serviceProcess, numRounds, jobId)
-				    .foreach {
-				      x => {
-				        println(x)
-				        if (ofile != null)
-				        	ofile.write(Array(x._1._1, x._1._2, x._1._3, x._2, x._3).mkString("\t")+"\n")
-				      }
-				    }
-				    
+				    departedJobsBuffer.add(runInPlaceRoundsConstructive(spark, slicesPerJob, serviceProcess, numRounds, jobId))
 				  } else {
-					  runInPlaceRoundsRecursive(spark, slicesPerJob, serviceProcess, numRounds, jobId, ofile)
-				    .foreach{
-				      x => {
-				        println(x)
-				        if (ofile != null)
-				        	ofile.write(Array(x._1._1, x._1._2, x._1._3, x._2, x._3).mkString("\t")+"\n")
-				      }
-				    }
+				    departedJobsBuffer.add(runInPlaceRoundsConstructive(spark, slicesPerJob, serviceProcess, numRounds, jobId))
 				  }
 				  
 					val stopTime = java.lang.System.currentTimeMillis()
 					println("--- JOB "+jobId+" STOP: "+stopTime)
 					println("=== JOB "+jobId+" ELAPSED: "+(stopTime-startTime))
+					jobDepartTimes(jobId) = stopTime
 					doneSignal.countDown()
 				}
 			});
 			threadList += t;
+			t.start();
 			jobsRun += 1;
-			t.start()
-			
+
+			// check if we can print out any job data
+			println(" $$$$$$$$$$$$$$$$ checking if departedJobsBuffer is empty with length = "+departedJobsBuffer.size())
+			if (! departedJobsBuffer.isEmpty) {
+			  println(" $$$$$$$$$$$$$$$$ checking if "+departedJobsBuffer.peek()(0).last._1._1+" == "+jobDepartIndex)
+				if (departedJobsBuffer.peek()(0).last._1._1 == jobDepartIndex) {
+					val jobId = departedJobsBuffer.peek()(0).last._1._1;
+					writeMultistageJobData(
+							departedJobsBuffer.poll(),
+							jobArrivalTimes(jobId),
+							jobStartTimes(jobId),
+							jobDepartTimes(jobId),
+							experimentStartTime,
+							ofile)
+					jobDepartIndex += 1
+				}
+			}
+
 			//XXX The way I do this does start the jobs in a Split-Merge fashion, but we are effectively 
 			//    spoofing the job arrivals.  The jobs aren't actually queued to the Spark system until
 			//    right before they start executing.  Therefore, to do any sort of analysis we need to
@@ -478,16 +548,20 @@ object InPlaceMultistageMap {
 			  t.join();
 			}
 			
-			val curTime = java.lang.System.currentTimeMillis()
-			val totalElapsedTime = (curTime- initialTime)/1000.0
-			val interarrivalTime = arrivalProcess();
-			println("*** inter-arrival time: "+interarrivalTime+" ***")
-			totalInterarrivalTime += interarrivalTime
-			println("totalInterarrivalTime = "+totalInterarrivalTime+"\t totalElapsedTime = "+totalElapsedTime)
-			
-			if (totalElapsedTime < totalInterarrivalTime) {
-			  println("sleep "+(math.round((totalInterarrivalTime - totalElapsedTime) * 1000.0)))
-				Thread sleep math.round((totalInterarrivalTime - totalElapsedTime) * 1000.0)
+			// compute the arrival time of the next job and sleep a bit if necessary
+			if (jobsRun < totalJobs) {
+				val curTime = java.lang.System.currentTimeMillis()
+						val totalElapsedTime = (curTime- initialTime)/1000.0
+						val interarrivalTime = arrivalProcess();
+				println("*** inter-arrival time: "+interarrivalTime+" ***")
+				totalInterarrivalTime += interarrivalTime
+				println("totalInterarrivalTime = "+totalInterarrivalTime+"\t totalElapsedTime = "+totalElapsedTime)
+				jobArrivalTimes(jobsRun) = totalInterarrivalTime * 1000.0
+
+				if (totalElapsedTime < totalInterarrivalTime) {
+					println("sleep "+(math.round((totalInterarrivalTime - totalElapsedTime) * 1000.0)))
+					Thread sleep math.round((totalInterarrivalTime - totalElapsedTime) * 1000.0)
+				}
 			}
 			
 		}
@@ -496,6 +570,24 @@ object InPlaceMultistageMap {
 		doneSignal.await()
 		for (t <- threadList) {
 		  t.join()  // unnecessary?
+		}
+		
+		// print out the data for any remaining jobs
+		println("departedJobsBuffer.length = "+departedJobsBuffer.size())
+		//for ( x <- departedJobsBuffer.iterator) {
+			//val jobId = x(0).last._1._1;
+		while (! departedJobsBuffer.isEmpty) {
+		  val x = departedJobsBuffer.poll()
+		  val jobId = x(0).last._1._1;
+		  println("  writing data for jobId = "+jobId)
+			writeMultistageJobData(
+					x,
+					jobArrivalTimes(jobId),
+					jobStartTimes(jobId),
+					jobDepartTimes(jobId),
+					experimentStartTime,
+					ofile)
+			jobDepartIndex += 1
 		}
 		
 		println("*** FINISHED!! ***")
