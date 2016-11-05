@@ -534,11 +534,6 @@ object InPlaceMultistagePipelineMap {
 				}
 			}
 
-			//XXX The way I do this does start the jobs in a Split-Merge fashion, but we are effectively 
-			//    spoofing the job arrivals.  The jobs aren't actually queued to the Spark system until
-			//    right before they start executing.  Therefore, to do any sort of analysis we need to
-			//    record the job arrivals separately from the spark eventlog.
-			//
 			// if requested, run jobs in split-merge style; job n can't start until job (n-1) is departed.
 			if (serialJobs) {
 			  t.join();
