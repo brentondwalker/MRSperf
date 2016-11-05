@@ -509,7 +509,7 @@ object InPlaceMultistageMap {
 				  if (constructFunction) {
 				    departedJobsBuffer.add(runInPlaceRoundsConstructive(spark, slicesPerJob, serviceProcess, numRounds, jobId))
 				  } else {
-				    departedJobsBuffer.add(runInPlaceRoundsConstructive(spark, slicesPerJob, serviceProcess, numRounds, jobId))
+				    departedJobsBuffer.add(runInPlaceRoundsRecursive(spark, slicesPerJob, serviceProcess, numRounds, jobId))
 				  }
 				  
 					val stopTime = java.lang.System.currentTimeMillis()

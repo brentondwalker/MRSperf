@@ -319,7 +319,7 @@ object InPlaceMultistagePipelineMap {
    * This method also calls count() on the end result of the recursion, which what triggers the
    * actual execution of the whole thing.
    */
-  def runInPlaceRoundsRecursivePipeline(spark:SparkContext, numSlices: Int, serviceProcess: () => Double, numRounds: Int, jobId: Int): Array[ListBuffer[TaskData]] = {
+  def runInPlaceRoundsPipelineRecursive(spark:SparkContext, numSlices: Int, serviceProcess: () => Double, numRounds: Int, jobId: Int): Array[ListBuffer[TaskData]] = {
     val serviceTimes = List.tabulate(numRounds)(n => List.tabulate(numSlices)( n => serviceProcess() ) )
     
     recursiveInPlaceEmptyRoundsPipeline(
@@ -352,7 +352,7 @@ object InPlaceMultistagePipelineMap {
    * with the desired number of stages.  The result should behave the same as the recursive
    * version.
    */
-  def runInPlaceRoundsConstructive(spark:SparkContext, slices: Int, serviceProcesss: () => Double, numRounds: Int, jobId: Int): Array[ListBuffer[TaskData]] = {
+  def runInPlaceRoundsPipelineConstructive(spark:SparkContext, slices: Int, serviceProcesss: () => Double, numRounds: Int, jobId: Int): Array[ListBuffer[TaskData]] = {
     
     var f: RDD[ListBuffer[TaskData]] => RDD[ListBuffer[TaskData]] = { x => x }
     
@@ -503,9 +503,9 @@ object InPlaceMultistagePipelineMap {
 					//runEmptySlices(spark, slicesPerJob, List.tabulate(10)(n => List.tabulate(slicesPerJob)( n => serviceProcess())), jobId)
 
 				  if (constructFunction) {
-				    departedJobsBuffer.add(runInPlaceRoundsConstructive(spark, slicesPerJob, serviceProcess, numRounds, jobId))
+				    departedJobsBuffer.add(runInPlaceRoundsPipelineConstructive(spark, slicesPerJob, serviceProcess, numRounds, jobId))
 				  } else {
-				    departedJobsBuffer.add(runInPlaceRoundsConstructive(spark, slicesPerJob, serviceProcess, numRounds, jobId))
+				    departedJobsBuffer.add(runInPlaceRoundsPipelineRecursive(spark, slicesPerJob, serviceProcess, numRounds, jobId))
 				  }
 				  
 					val stopTime = java.lang.System.currentTimeMillis()
