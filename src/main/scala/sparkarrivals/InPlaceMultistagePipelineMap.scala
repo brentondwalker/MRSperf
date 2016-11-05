@@ -305,7 +305,7 @@ object InPlaceMultistagePipelineMap {
     			  prevData.append(doWork(jobLength, jobId, stageId, taskId))
     			  prevData
     			},
-    			serviceTimes.init,
+    			if (serviceTimes.length==1) serviceTimes else serviceTimes.init,
     			jobId,
     			remaining_rounds - 1)
     }
@@ -319,8 +319,13 @@ object InPlaceMultistagePipelineMap {
    * This method also calls count() on the end result of the recursion, which what triggers the
    * actual execution of the whole thing.
    */
-  def runInPlaceRoundsPipelineRecursive(spark:SparkContext, numSlices: Int, serviceProcess: () => Double, numRounds: Int, jobId: Int): Array[ListBuffer[TaskData]] = {
-    val serviceTimes = List.tabulate(numRounds)(n => List.tabulate(numSlices)( n => serviceProcess() ) )
+  def runInPlaceRoundsPipelineRecursive(spark:SparkContext, numSlices: Int, serviceProcess: () => Double, numRounds: Int, jobId: Int, correlatedRounds: Boolean): Array[ListBuffer[TaskData]] = {
+
+    // if we pass in just a single set of service times, ten the recursion
+    // will use those same service times for each stage (correlated service times mode)
+    val serviceTimes = 
+      if (correlatedRounds) List.tabulate(numRounds)(n => List.tabulate(numSlices)( n => serviceProcess() ) )
+      else List(List.tabulate(numSlices)( n => serviceProcess() ))
     
     recursiveInPlaceEmptyRoundsPipeline(
         spark.parallelize(1 to numSlices, numSlices)
@@ -352,13 +357,15 @@ object InPlaceMultistagePipelineMap {
    * with the desired number of stages.  The result should behave the same as the recursive
    * version.
    */
-  def runInPlaceRoundsPipelineConstructive(spark:SparkContext, slices: Int, serviceProcesss: () => Double, numRounds: Int, jobId: Int): Array[ListBuffer[TaskData]] = {
+  def runInPlaceRoundsPipelineConstructive(spark:SparkContext, slices: Int, serviceProcesss: () => Double, numRounds: Int, jobId: Int, correlatedRounds: Boolean): Array[ListBuffer[TaskData]] = {
     
     var f: RDD[ListBuffer[TaskData]] => RDD[ListBuffer[TaskData]] = { x => x }
     
-    var r = 0
+    // if we are using correlated service times, then we will reuse these service times at every stage
+    val taskServiceTimes = if (correlatedRounds) List.tabulate(slices)(n => serviceProcesss()) else null
+    
     for ( stageId <- 1 to numRounds ) {
-    	val serviceTimes = List.tabulate(slices)(n => serviceProcesss())
+    	val serviceTimes = if (correlatedRounds) taskServiceTimes else List.tabulate(slices)(n => serviceProcesss())
       f = appendEmptyStagePipeline(f, serviceTimes, jobId, stageId)
     }
     
@@ -503,9 +510,9 @@ object InPlaceMultistagePipelineMap {
 					//runEmptySlices(spark, slicesPerJob, List.tabulate(10)(n => List.tabulate(slicesPerJob)( n => serviceProcess())), jobId)
 
 				  if (constructFunction) {
-				    departedJobsBuffer.add(runInPlaceRoundsPipelineConstructive(spark, slicesPerJob, serviceProcess, numRounds, jobId))
+				    departedJobsBuffer.add(runInPlaceRoundsPipelineConstructive(spark, slicesPerJob, serviceProcess, numRounds, jobId, correlatedRounds))
 				  } else {
-				    departedJobsBuffer.add(runInPlaceRoundsPipelineRecursive(spark, slicesPerJob, serviceProcess, numRounds, jobId))
+				    departedJobsBuffer.add(runInPlaceRoundsPipelineRecursive(spark, slicesPerJob, serviceProcess, numRounds, jobId, correlatedRounds))
 				  }
 				  
 					val stopTime = java.lang.System.currentTimeMillis()
