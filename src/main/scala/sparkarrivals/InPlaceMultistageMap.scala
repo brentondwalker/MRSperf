@@ -36,6 +36,8 @@ import java.util.concurrent.PriorityBlockingQueue
  * actually works, but suspect it's not he most efficient way in cases
  * where the jobs are all map, and the service times between iterations
  * are independent.
+ * 
+ * ./bin/spark-submit --master spark://172.23.27.10:7077 --class sparkarrivals.InPlaceMultistageMap /home/ikt/properbounds/spark-arrivals/target/scala-2.10/spark-arrivals-assembly-1.0.jar -n 1000 -t 10 -w 10 -A x 0.7 -S x 10.0  -r 10  -c -o testrun
  */
 object InPlaceMultistageMap {
   
@@ -522,9 +524,7 @@ object InPlaceMultistageMap {
 			jobsRun += 1;
 
 			// check if we can print out any job data
-			println(" $$$$$$$$$$$$$$$$ checking if departedJobsBuffer is empty with length = "+departedJobsBuffer.size())
 			if (! departedJobsBuffer.isEmpty) {
-			  println(" $$$$$$$$$$$$$$$$ checking if "+departedJobsBuffer.peek()(0).last._1._1+" == "+jobDepartIndex)
 				if (departedJobsBuffer.peek()(0).last._1._1 == jobDepartIndex) {
 					val jobId = departedJobsBuffer.peek()(0).last._1._1;
 					writeMultistageJobData(
@@ -553,13 +553,13 @@ object InPlaceMultistageMap {
 				val curTime = java.lang.System.currentTimeMillis()
 						val totalElapsedTime = (curTime- initialTime)/1000.0
 						val interarrivalTime = arrivalProcess();
-				println("*** inter-arrival time: "+interarrivalTime+" ***")
+				//println("*** inter-arrival time: "+interarrivalTime+" ***")
 				totalInterarrivalTime += interarrivalTime
-				println("totalInterarrivalTime = "+totalInterarrivalTime+"\t totalElapsedTime = "+totalElapsedTime)
+				//println("totalInterarrivalTime = "+totalInterarrivalTime+"\t totalElapsedTime = "+totalElapsedTime)
 				jobArrivalTimes(jobsRun) = totalInterarrivalTime * 1000.0
 
 				if (totalElapsedTime < totalInterarrivalTime) {
-					println("sleep "+(math.round((totalInterarrivalTime - totalElapsedTime) * 1000.0)))
+					//println("sleep "+(math.round((totalInterarrivalTime - totalElapsedTime) * 1000.0)))
 					Thread sleep math.round((totalInterarrivalTime - totalElapsedTime) * 1000.0)
 				}
 			}
