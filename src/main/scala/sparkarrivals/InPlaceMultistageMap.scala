@@ -301,7 +301,7 @@ object InPlaceMultistageMap {
     			  prevData.append(doWork(jobLength, jobId, stageId, taskId))
     			  prevData
     			}.groupBy { x => x.last._1._3 },
-    			serviceTimes.init,
+    			if (serviceTimes.length==1) serviceTimes else serviceTimes.init,
     			jobId,
     			remaining_rounds - 1)
     }
@@ -327,7 +327,7 @@ object InPlaceMultistageMap {
         spark.parallelize(1 to numSlices, numSlices)
           .map( x => ListBuffer[TaskData]( ((jobId,-1,x),0,0)) )
           .groupBy{ x => x.last._1._3 },
-        if (serviceTimes.length==1) serviceTimes else serviceTimes.init,
+        serviceTimes,
         jobId,
         numRounds)
     .map( x => x._2.last )
