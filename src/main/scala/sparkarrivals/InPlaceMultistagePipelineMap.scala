@@ -61,7 +61,7 @@ object InPlaceMultistagePipelineMap {
 		cli_options.addOption("n", "numsamples", true, "number of jobs to run");
 		cli_options.addOption("o", "outfile-base", true, "base name (with path) of the output files");
 		cli_options.addOption("r", "rounds", true, "number of rounds of service each job needs");
-		cli_options.addOption("x", "correlated-rounds", true, "the service times of the tasks are the same across rounds");
+		cli_options.addOption("x", "correlated-rounds", false, "the service times of the tasks are the same across rounds");
 		cli_options.addOption("s", "sequential-jobs", false, "submit the jobs sequentially instead of from separate threads");
 		cli_options.addOption("c", "constructive", false, "build the multi-stage jobs in a functionally constructive way (default method is recursive)");
 		
