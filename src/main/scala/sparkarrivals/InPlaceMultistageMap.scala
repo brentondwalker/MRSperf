@@ -139,7 +139,7 @@ object InPlaceMultistageMap {
     	  case "w" if (args.length == 2 || args.length == 3) => {
     	    val shape = args(1).toDouble
     	    val rate = if (args.length == 3) args(2).toDouble else 1.0
-    	    val scale = rate/Gamma.gamma(1.0 + 1.0/shape);
+    	    val scale = 1.0/(rate * Gamma.gamma(1.0 + 1.0/shape));
 
     	    val weibul = new WeibullDistribution(shape, scale)
     	    ( () => weibul.sample() )
