@@ -321,8 +321,8 @@ object InPlaceMultistagePipelineMap {
     // if we pass in just a single set of service times, ten the recursion
     // will use those same service times for each stage (correlated service times mode)
     val serviceTimes = 
-      if (correlatedRounds) List.tabulate(numRounds)(n => List.tabulate(numSlices)( n => serviceProcess() ) )
-      else List(List.tabulate(numSlices)( n => serviceProcess() ))
+      if (correlatedRounds) List(List.tabulate(numSlices)( n => serviceProcess() ))
+      else List.tabulate(numRounds)(n => List.tabulate(numSlices)( n => serviceProcess() ) )
     
     recursiveInPlaceEmptyRoundsPipeline(
         spark.parallelize(1 to numSlices, numSlices)

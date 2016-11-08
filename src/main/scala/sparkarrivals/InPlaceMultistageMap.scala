@@ -311,14 +311,17 @@ object InPlaceMultistageMap {
    * 
    * This method also calls count() on the end result of the recursion, which what triggers the
    * actual execution of the whole thing.
+   * 
+   *  XXX the -x option is not working correctly here
+   * 
    */
   def runInPlaceRoundsRecursive(spark:SparkContext, numSlices: Int, serviceProcess: () => Double, numRounds: Int, jobId: Int, correlatedRounds: Boolean): Array[ListBuffer[TaskData]] = {
 
     // if we pass in just a single set of service times, ten the recursion
     // will use those same service times for each stage (correlated service times mode)
     val serviceTimes = 
-      if (correlatedRounds) List.tabulate(numRounds)(n => List.tabulate(numSlices)( n => serviceProcess() ) )
-      else List(List.tabulate(numSlices)( n => serviceProcess() ))
+      if (correlatedRounds) List(List.tabulate(numSlices)( n => serviceProcess() ))
+      else List.tabulate(numRounds)(n => List.tabulate(numSlices)( n => serviceProcess() ) )
       
     recursiveInPlaceEmptyRounds(
         spark.parallelize(1 to numSlices, numSlices)
