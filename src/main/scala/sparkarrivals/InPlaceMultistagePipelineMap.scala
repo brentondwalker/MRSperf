@@ -489,7 +489,7 @@ object InPlaceMultistagePipelineMap {
 		val threadList = ListBuffer[Thread]()
 		val experimentStartTime: Long = java.lang.System.currentTimeMillis()
 		
-		while (jobsRun.get < totalJobs) {
+		while (jobsRun < totalJobs) {
 			println("")
 			
 			val t = new Thread(new Runnable {

@@ -198,7 +198,8 @@ object ThreadedMapJobs {
 	  val conf = new SparkConf()
 	    .setAppName("ThreadedMapJobs")
 	    .set("spark.cores.max", numWorkers.toString())
-		val spark = new SparkContext(conf)		
+		val spark = new SparkContext(conf)
+    spark.setLogLevel("ERROR")
 		
 		// give the system a little time for the executors to start... 30 seconds?
 		// this is stupid b/c the full set of executors actually take less tha 1s to start
